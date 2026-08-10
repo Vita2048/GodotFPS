@@ -1,0 +1,212 @@
+[gd_scene load_steps=4 format=3 uid="uid://cplayerfps001"]
+
+[ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="2_hud"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
+radius = 0.35
+height = 1.7
+
+[node name="Player" type="CharacterBody3D"]
+collision_layer = 2
+collision_mask = 1
+floor_stop_on_slope = true
+script = ExtResource("1_player")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, 0)
+shape = SubResource("CapsuleShape3D_body")
+
+[node name="Head" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+
+[node name="Camera3D" type="Camera3D" parent="Head"]
+cull_mask = 1
+fov = 75.0
+near = 0.05
+far = 120.0
+current = true
+
+[node name="ViewmodelCamera" type="Camera3D" parent="Head/Camera3D"]
+cull_mask = 2
+fov = 50.0
+near = 0.01
+far = 5.0
+current = false
+
+[node name="WeaponAnchor" type="Node3D" parent="Head/Camera3D"]
+
+[node name="ShootRay" type="RayCast3D" parent="Head/Camera3D"]
+target_position = Vector3(0, 0, -80)
+collision_mask = 5
+collide_with_areas = false
+
+[node name="HUD" type="CanvasLayer" parent="."]
+layer = 5
+script = ExtResource("2_hud")
+
+[node name="HurtOverlay" type="ColorRect" parent="HUD"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.7, 0, 0, 0)
+
+[node name="Crosshair" type="Control" parent="HUD"]
+layout_mode = 3
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="H" type="ColorRect" parent="HUD/Crosshair"]
+offset_left = -8.0
+offset_top = -1.0
+offset_right = 8.0
+offset_bottom = 1.0
+color = Color(0.2, 1, 0.4, 0.85)
+
+[node name="V" type="ColorRect" parent="HUD/Crosshair"]
+offset_left = -1.0
+offset_top = -8.0
+offset_right = 1.0
+offset_bottom = 8.0
+color = Color(0.2, 1, 0.4, 0.85)
+
+[node name="Root" type="Control" parent="HUD"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Message" type="Label" parent="HUD/Root"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -240.0
+offset_top = 72.0
+offset_right = 240.0
+offset_bottom = 120.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.2, 1)
+theme_override_font_sizes/font_size = 28
+text = ""
+horizontal_alignment = 1
+
+[node name="BottomBar" type="HBoxContainer" parent="HUD/Root"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = -86.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 8
+
+[node name="ScoreBox" type="PanelContainer" parent="HUD/Root/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VBox" type="VBoxContainer" parent="HUD/Root/BottomBar/ScoreBox"]
+layout_mode = 2
+
+[node name="ScoreVal" type="Label" parent="HUD/Root/BottomBar/ScoreBox/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "0"
+horizontal_alignment = 1
+
+[node name="Cap" type="Label" parent="HUD/Root/BottomBar/ScoreBox/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.65, 0.75, 1)
+theme_override_font_sizes/font_size = 11
+text = "SCORE"
+horizontal_alignment = 1
+
+[node name="HealthBox" type="PanelContainer" parent="HUD/Root/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VBox" type="VBoxContainer" parent="HUD/Root/BottomBar/HealthBox"]
+layout_mode = 2
+
+[node name="HealthVal" type="Label" parent="HUD/Root/BottomBar/HealthBox/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.3, 1, 0.4, 1)
+theme_override_font_sizes/font_size = 28
+text = "100"
+horizontal_alignment = 1
+
+[node name="Cap" type="Label" parent="HUD/Root/BottomBar/HealthBox/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.65, 0.75, 1)
+theme_override_font_sizes/font_size = 11
+text = "HEALTH"
+horizontal_alignment = 1
+
+[node name="FaceBox" type="PanelContainer" parent="HUD/Root/BottomBar"]
+custom_minimum_size = Vector2(88, 0)
+layout_mode = 2
+
+[node name="Face" type="Label" parent="HUD/Root/BottomBar/FaceBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+text = "😐"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="AmmoBox" type="PanelContainer" parent="HUD/Root/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VBox" type="VBoxContainer" parent="HUD/Root/BottomBar/AmmoBox"]
+layout_mode = 2
+
+[node name="AmmoVal" type="Label" parent="HUD/Root/BottomBar/AmmoBox/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 22
+text = "30 / 90"
+horizontal_alignment = 1
+
+[node name="Cap" type="Label" parent="HUD/Root/BottomBar/AmmoBox/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.65, 0.75, 1)
+theme_override_font_sizes/font_size = 11
+text = "AMMO"
+horizontal_alignment = 1
+
+[node name="EnemyBox" type="PanelContainer" parent="HUD/Root/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VBox" type="VBoxContainer" parent="HUD/Root/BottomBar/EnemyBox"]
+layout_mode = 2
+
+[node name="EnemyVal" type="Label" parent="HUD/Root/BottomBar/EnemyBox/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.45, 0.35, 1)
+theme_override_font_sizes/font_size = 22
+text = "0"
+horizontal_alignment = 1
+
+[node name="Cap" type="Label" parent="HUD/Root/BottomBar/EnemyBox/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.65, 0.75, 1)
+theme_override_font_sizes/font_size = 11
+text = "HOSTILES"
+horizontal_alignment = 1

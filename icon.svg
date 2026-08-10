@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">
+  <rect width="128" height="128" fill="#1a1a2e"/>
+  <rect x="20" y="48" width="70" height="18" rx="3" fill="#c9a227"/>
+  <rect x="80" y="52" width="28" height="10" rx="2" fill="#888"/>
+  <circle cx="36" cy="78" r="8" fill="#444"/>
+  <circle cx="70" cy="78" r="8" fill="#444"/>
+  <text x="64" y="36" text-anchor="middle" fill="#e94560" font-family="sans-serif" font-size="18" font-weight="bold">FPS</text>
+</svg>

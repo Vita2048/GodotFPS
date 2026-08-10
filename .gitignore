@@ -1,0 +1,70 @@
+# =============================================================================
+# GodotFPS — keep the repo lean: source + assets only
+# =============================================================================
+
+# --- Godot editor cache / imported binary cache (regenerated on open) ---
+.godot/
+.import/
+
+# --- Exported builds (use export_release.bat / Project → Export) ---
+build/
+export/
+exports/
+*.exe
+*.pck
+*.dll
+*.so
+*.dylib
+*.app
+*.x86_64
+*.x86_32
+*.apk
+*.aab
+*.ipa
+*.zip
+*.tar.gz
+
+# --- Export config with local machine paths (optional to share presets) ---
+# Keep export_presets.cfg out if it embeds absolute paths; re-create in editor.
+export.cfg
+
+# --- Translations generated from CSV ---
+*.translation
+
+# --- Mono / C# (not used, but harmless) ---
+.mono/
+data_*/
+mono_crash.*.json
+
+# --- OS / editor junk ---
+.DS_Store
+Thumbs.db
+desktop.ini
+*~
+*.tmp
+*.temp
+*.log
+*.swp
+*.swo
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userprefs
+
+# --- Blender / DCC backups ---
+*.blend1
+*.blend2
+
+# --- Large intermediate / duplicate sources not needed at runtime ---
+# Full-size Mixamo FBX duplicates of converted GLB clips (keep .glb for the game)
+# Uncomment next lines if you want an even smaller repo and only ship GLBs:
+# assets/characters/*.fbx
+# assets/characters/police-compressed*.glb
+
+# --- Python / tooling scratch ---
+__pycache__/
+*.pyc
+.venv/
+venv/

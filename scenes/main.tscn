@@ -1,0 +1,89 @@
+[gd_scene load_steps=5 format=3 uid="uid://cmainfps001"]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/level_generator.gd" id="2_level"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="3_player"]
+[ext_resource type="Script" path="res://scripts/title_ui.gd" id="4_title"]
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+
+[node name="Level" type="Node3D" parent="."]
+script = ExtResource("2_level")
+rooms_count = 6
+map_width = 24
+map_height = 24
+performance_mode = true
+
+[node name="Entities" type="Node3D" parent="."]
+
+[node name="Player" parent="." instance=ExtResource("3_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0.1, 8)
+
+[node name="UI" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="TitleUI" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("4_title")
+
+[node name="Dim" type="ColorRect" parent="UI/TitleUI"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.02, 0.02, 0.05, 0.88)
+
+[node name="Center" type="CenterContainer" parent="UI/TitleUI"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="UI/TitleUI/Center"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="UI/TitleUI/Center/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.2, 0.25, 1)
+theme_override_colors/font_shadow_color = Color(0.2, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 4
+theme_override_constants/shadow_offset_y = 4
+theme_override_font_sizes/font_size = 72
+text = "GODOT FPS"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="UI/TitleUI/Center/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.75, 0.85, 1)
+theme_override_font_sizes/font_size = 22
+text = "Procedural Sector Assault"
+horizontal_alignment = 1
+
+[node name="StartBtn" type="Button" parent="UI/TitleUI/Center/VBox"]
+custom_minimum_size = Vector2(280, 52)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 22
+text = "CLICK TO PLAY"
+
+[node name="Controls" type="Label" parent="UI/TitleUI/Center/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.78, 0.85, 1)
+theme_override_font_sizes/font_size = 16
+text = "WASD Move  |  Shift Sprint  |  Mouse Look
+LMB Shoot  |  R Reload  |  E Open Doors  |  Esc Pause"
+horizontal_alignment = 1

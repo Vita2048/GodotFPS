@@ -42,7 +42,19 @@ func _update_fps_label() -> void:
 	if QualitySettings:
 		q = QualitySettings.label()
 	var diff := GameState.difficulty_label() if GameState else "?"
-	fps_label.text = "%d FPS  |  %s  |  Quality %s (F10)" % [Engine.get_frames_per_second(), diff, q]
+	var sec := ""
+	if GameState:
+		sec = "  |  %d/%d" % [GameState.current_sector, GameState.max_sectors]
+	fps_label.text = "%d FPS  |  %s%s  |  Quality %s (F10)" % [Engine.get_frames_per_second(), diff, sec, q]
+
+
+func _on_sector(current: int, max_s: int) -> void:
+	if message_label:
+		message_label.text = "SECTOR %d / %d" % [current, max_s]
+		message_label.modulate.a = 1.0
+		var tw := create_tween()
+		tw.tween_interval(2.0)
+		tw.tween_property(message_label, "modulate:a", 0.0, 0.8)
 
 
 func _on_health(v: int) -> void:

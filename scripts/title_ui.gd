@@ -108,7 +108,7 @@ func show_title() -> void:
 	if title_label:
 		title_label.text = "GODOT FPS"
 	if subtitle:
-		subtitle.text = "Procedural Sector Assault"
+		subtitle.text = "Two sectors · %s" % (GameState.sector_name() if GameState else "SECTOR ALPHA")
 	if start_btn:
 		start_btn.text = "CLICK TO PLAY"
 	if controls:
@@ -153,11 +153,26 @@ func show_dead() -> void:
 	_refresh_diff_ui()
 
 
+func show_sector_clear(sector: int, max_sectors: int) -> void:
+	visible = true
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	if title_label:
+		title_label.text = "SECTOR %d CLEAR" % sector
+	if subtitle:
+		subtitle.text = "Score: %d  |  Proceed to sector %d / %d" % [GameState.score, sector + 1, max_sectors]
+	if start_btn:
+		start_btn.text = "NEXT SECTOR"
+	if _diff_row:
+		_diff_row.visible = false
+	if _diff_label:
+		_diff_label.visible = false
+
+
 func show_win() -> void:
 	visible = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	if title_label:
-		title_label.text = "SECTOR CLEARED"
+		title_label.text = "CAMPAIGN COMPLETE"
 	if subtitle:
 		subtitle.text = "Score: %d  |  %s" % [GameState.score, GameState.difficulty_label()]
 	if start_btn:

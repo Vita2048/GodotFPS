@@ -12,9 +12,9 @@ script = ExtResource("1_main")
 
 [node name="Level" type="Node3D" parent="."]
 script = ExtResource("2_level")
-rooms_count = 6
-map_width = 24
-map_height = 24
+rooms_count = 12
+map_width = 40
+map_height = 40
 performance_mode = true
 
 [node name="Entities" type="Node3D" parent="."]

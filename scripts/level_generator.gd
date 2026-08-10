@@ -11,12 +11,14 @@ const TILE_WALL := 1
 const TILE_DOOR := 2
 const TILE_PILLAR := 3
 
-@export var rooms_count: int = 6
-@export var map_width: int = 24
-@export var map_height: int = 24
+@export var rooms_count: int = 12
+@export var map_width: int = 40
+@export var map_height: int = 40
 @export var seed_value: int = 0
 ## Huge FPS win: one floor/ceiling, no trims/beads, few lights, no shadows.
 @export var performance_mode: bool = true
+## Visual theme: 1 = cool concrete, 2 = warm industrial
+var sector_theme: int = 1
 
 var grid: Array = [] # 2D ints
 var doors: Array[Node3D] = []
@@ -25,6 +27,30 @@ var _mats: Dictionary = {}
 var _enemy_spawns: Array[Vector3] = []
 var _pickup_spawns: Array = []
 var _spawn_pos := Vector3(CELL * 1.5, 0.0, CELL * 1.5)
+
+
+func configure_for_sector(sector: int) -> void:
+	## Two distinct larger layouts (called before generate).
+	sector_theme = sector
+	match sector:
+		1:
+			# Sector Alpha — sprawling facility
+			rooms_count = 12
+			map_width = 40
+			map_height = 40
+			seed_value = int(Time.get_unix_time_from_system()) ^ 0xA11A
+		2:
+			# Sector Beta — larger, denser complex
+			rooms_count = 16
+			map_width = 48
+			map_height = 48
+			seed_value = int(Time.get_unix_time_from_system()) ^ 0xBE7A
+		_:
+			rooms_count = 10
+			map_width = 36
+			map_height = 36
+			seed_value = int(Time.get_unix_time_from_system())
+
 
 func generate(seed_override: int = -1) -> void:
 	for c in get_children():
@@ -134,16 +160,18 @@ func _carve_rooms() -> void:
 		grid.append(row)
 
 	var rooms: Array = []
-	# Start room
-	var start := Rect2i(2, 2, 6, 6)
+	# Larger start room on bigger maps
+	var start_sz := 8 if map_width >= 36 else 6
+	var start := Rect2i(2, 2, start_sz, start_sz)
 	rooms.append(start)
 	_carve_rect(start, TILE_EMPTY)
 
 	var attempts := 0
-	while rooms.size() < rooms_count and attempts < 200:
+	var max_attempts := rooms_count * 40
+	while rooms.size() < rooms_count and attempts < max_attempts:
 		attempts += 1
-		var w := _rng.randi_range(5, 9)
-		var h := _rng.randi_range(5, 9)
+		var w := _rng.randi_range(6, 12)
+		var h := _rng.randi_range(6, 12)
 		var x := _rng.randi_range(1, map_width - w - 2)
 		var z := _rng.randi_range(1, map_height - h - 2)
 		var candidate := Rect2i(x, z, w, h)
@@ -156,7 +184,6 @@ func _carve_rooms() -> void:
 		if not ok:
 			continue
 		_carve_rect(candidate, TILE_EMPTY)
-		# Connect to closest room
 		var closest: Rect2i = rooms[0]
 		var best_d := 999999
 		var c_center := candidate.get_center()
@@ -489,11 +516,14 @@ func _place_lights() -> void:
 	lights_root.name = "Lights"
 	add_child(lights_root)
 
-	# Perf: sparse unshadowed omnis; High quality: denser + rare shadows
-	var step := 5 if performance_mode else 3
-	var chance := 0.35 if performance_mode else 0.55
-	var max_lights := 8 if performance_mode else 24
+	# More coverage so character textures aren't pure black in shadows
+	var step := 4 if performance_mode else 3
+	var chance := 0.55 if performance_mode else 0.7
+	var max_lights := 18 if performance_mode else 28
+	# Scale light budget with map size
+	max_lights = mini(max_lights + int((map_width * map_height) / 200.0), 32)
 	var placed := 0
+	var warm := sector_theme == 2
 
 	for z in range(2, map_height - 2, step):
 		for x in range(2, map_width - 2, step):
@@ -505,7 +535,7 @@ func _place_lights() -> void:
 				continue
 			var origin := Vector3(x * CELL + CELL * 0.5, WALL_H - 0.35, z * CELL + CELL * 0.5)
 
-			if not performance_mode:
+			if not performance_mode or placed % 3 == 0:
 				var fixture := MeshInstance3D.new()
 				var box := BoxMesh.new()
 				box.size = Vector3(0.9, 0.08, 0.9)
@@ -515,16 +545,18 @@ func _place_lights() -> void:
 				lights_root.add_child(fixture)
 
 			var light := OmniLight3D.new()
-			light.light_color = Color(0.75, 0.88, 1.0) if _rng.randf() > 0.3 else Color(1.0, 0.85, 0.65)
-			light.light_energy = 1.6 if performance_mode else _rng.randf_range(1.2, 2.2)
-			light.omni_range = CELL * (4.5 if performance_mode else 3.2)
-			light.omni_attenuation = 1.2
-			light.shadow_enabled = false if performance_mode else (_rng.randf() > 0.7)
+			if warm:
+				light.light_color = Color(1.0, 0.82, 0.62) if _rng.randf() > 0.35 else Color(0.95, 0.75, 0.55)
+			else:
+				light.light_color = Color(0.85, 0.92, 1.0) if _rng.randf() > 0.3 else Color(1.0, 0.9, 0.75)
+			light.light_energy = 2.2 if performance_mode else _rng.randf_range(1.8, 2.6)
+			light.omni_range = CELL * (5.5 if performance_mode else 4.0)
+			light.omni_attenuation = 1.0
+			light.shadow_enabled = false
 			light.position = origin + Vector3(0, -0.15, 0)
-			# Distance fade for cheaper far lights
 			light.distance_fade_enabled = true
-			light.distance_fade_begin = 18.0
-			light.distance_fade_length = 10.0
+			light.distance_fade_begin = 28.0
+			light.distance_fade_length = 12.0
 			lights_root.add_child(light)
 			placed += 1
 

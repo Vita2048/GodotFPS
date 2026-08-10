@@ -22,6 +22,8 @@ var _attack_cd: float = 0.0
 var _current_anim: String = ""
 var _aware: bool = false
 var _rng := RandomNumberGenerator.new()
+## Surface materials we set in _prepare_meshes (restored after hurt flash / on death)
+var _surface_mats: Array = [] # Array of { "mi": MeshInstance3D, "surface": int, "mat": Material }
 
 # Mapped animation names after import/retarget
 var anim_idle: String = ""
@@ -139,6 +141,7 @@ func _load_visuals_and_anims() -> void:
 
 
 func _prepare_meshes(root: Node) -> void:
+	_surface_mats.clear()
 	for n in root.find_children("*", "GeometryInstance3D", true, false):
 		var gi := n as GeometryInstance3D
 		gi.layers = 1
@@ -151,20 +154,36 @@ func _prepare_meshes(root: Node) -> void:
 		gi.visibility_range_begin = 0.0
 		if gi is MeshInstance3D:
 			var mi := gi as MeshInstance3D
+			mi.material_override = null # never leave a solid-color override stuck
 			if mi.mesh == null:
 				continue
 			for s in mi.mesh.get_surface_count():
 				var mat := mi.get_active_material(s)
-				if mat is BaseMaterial3D:
+				if mat is StandardMaterial3D:
+					var sm := (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
+					sm.cull_mode = BaseMaterial3D.CULL_DISABLED
+					# Dark police uniforms read as pure black under sparse lights — lift response
+					sm.albedo_color = Color(1.35, 1.35, 1.4) # brighten textured albedo
+					sm.metallic = minf(sm.metallic, 0.15)
+					sm.roughness = maxf(sm.roughness, 0.55)
+					sm.specular = 0.35
+					# Bake a little self-illumination from the albedo map so silhouettes stay readable
+					sm.emission_enabled = true
+					if sm.albedo_texture:
+						sm.emission_texture = sm.albedo_texture
+						sm.emission = Color(1, 1, 1)
+						sm.emission_energy_multiplier = 0.35
+						sm.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
+					else:
+						sm.emission = Color(0.25, 0.28, 0.35)
+						sm.emission_energy_multiplier = 0.4
+					mi.set_surface_override_material(s, sm)
+					_surface_mats.append({"mi": mi, "surface": s, "mat": sm})
+				elif mat is BaseMaterial3D:
 					var bm := (mat as BaseMaterial3D).duplicate() as BaseMaterial3D
 					bm.cull_mode = BaseMaterial3D.CULL_DISABLED
-					# Slight emission so dark corridors still show the silhouette
-					if bm is StandardMaterial3D:
-						var sm := bm as StandardMaterial3D
-						sm.emission_enabled = true
-						sm.emission = Color(0.08, 0.1, 0.14)
-						sm.emission_energy_multiplier = 0.45
 					mi.set_surface_override_material(s, bm)
+					_surface_mats.append({"mi": mi, "surface": s, "mat": bm})
 
 
 func _placeholder_mesh() -> Node3D:
@@ -490,27 +509,51 @@ func take_damage(amount: int, _hit_pos: Vector3 = Vector3.ZERO) -> void:
 		return
 	hp -= amount
 	_aware = true
-	# Flash red
-	_flash_hurt()
 	if hp <= 0:
+		# Restore textures first so the death anim keeps original look
+		_restore_materials()
 		_die()
+	else:
+		_flash_hurt()
 
 
 func _flash_hurt() -> void:
+	# Brief red emission pulse WITHOUT replacing albedo textures
+	for entry in _surface_mats:
+		var mat: Material = entry["mat"]
+		if mat is StandardMaterial3D:
+			var sm := mat as StandardMaterial3D
+			sm.emission_enabled = true
+			sm.emission = Color(1.0, 0.15, 0.1)
+			sm.emission_energy_multiplier = 1.8
+			if sm.emission_texture == null and sm.albedo_texture:
+				sm.emission_texture = sm.albedo_texture
+	get_tree().create_timer(0.1).timeout.connect(_restore_materials)
+
+
+func _restore_materials() -> void:
+	# Clear any solid override and put back prepared textured materials
 	for n in _model_root.find_children("*", "MeshInstance3D", true, false):
-		var mi := n as MeshInstance3D
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color(1, 0.2, 0.2)
-		mat.emission_enabled = true
-		mat.emission = Color(1, 0.1, 0.1)
-		mat.emission_energy_multiplier = 2.0
-		mi.material_override = mat
-	get_tree().create_timer(0.08).timeout.connect(func():
-		if state == State.DEAD:
-			return
-		for n in _model_root.find_children("*", "MeshInstance3D", true, false):
-			(n as MeshInstance3D).material_override = null
-	)
+		(n as MeshInstance3D).material_override = null
+	for entry in _surface_mats:
+		var mi: MeshInstance3D = entry["mi"]
+		var s: int = entry["surface"]
+		var mat: Material = entry["mat"]
+		if not is_instance_valid(mi):
+			continue
+		if mat is StandardMaterial3D:
+			var sm := mat as StandardMaterial3D
+			# Reset hurt emission to the normal “readable” look
+			sm.emission_enabled = true
+			if sm.albedo_texture:
+				sm.emission_texture = sm.albedo_texture
+				sm.emission = Color(1, 1, 1)
+				sm.emission_energy_multiplier = 0.35
+				sm.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
+			else:
+				sm.emission = Color(0.25, 0.28, 0.35)
+				sm.emission_energy_multiplier = 0.4
+		mi.set_surface_override_material(s, mat)
 
 
 func _die() -> void:
@@ -518,11 +561,11 @@ func _die() -> void:
 	velocity = Vector3.ZERO
 	collision_layer = 0
 	collision_mask = 0
+	_restore_materials() # keep original textures during death animation
 	GameState.add_score(100)
 	GameState.unregister_enemy()
 	_play(anim_die if anim_die != "" else "")
 	SFX.play_3d(get_parent(), "hit", global_position, -6.0)
-	# Remove after death anim
 	var delay := 2.8
 	if _anim and anim_die != "" and _anim.has_animation(anim_die):
 		delay = maxf(2.0, _anim.get_animation(anim_die).length + 0.3)

@@ -22,17 +22,38 @@ var score: int = 0
 var enemies_alive: int = 0
 var player_dead: bool = false
 var game_started: bool = false
+## Campaign: two larger sectors
+var current_sector: int = 1
+var max_sectors: int = 2
 
-## Tunables per difficulty (read by level gen + enemies + reset)
+
+func sector_name() -> String:
+	match current_sector:
+		1:
+			return "SECTOR ALPHA"
+		2:
+			return "SECTOR BETA"
+		_:
+			return "SECTOR %d" % current_sector
+
+
+func advance_sector() -> void:
+	current_sector = mini(current_sector + 1, max_sectors)
+
+
 func enemy_count_cap() -> int:
+	var base := 2
 	match difficulty:
 		Difficulty.EASY:
-			return 2
+			base = 3
 		Difficulty.NORMAL:
-			return 4
+			base = 5
 		_:
-			return 7
-
+			base = 8
+	# Second sector is a bit denser
+	if current_sector >= 2:
+		base += 2
+	return base
 
 func enemy_damage() -> int:
 	match difficulty:
@@ -167,7 +188,6 @@ func reset(reset_enemy_count: bool = true) -> void:
 	health = max_health
 	mag = mag_size
 	reserve_ammo = player_start_reserve()
-	score = 0
 	if reset_enemy_count:
 		enemies_alive = 0
 	player_dead = false

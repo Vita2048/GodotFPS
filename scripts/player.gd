@@ -43,6 +43,17 @@ func _ready() -> void:
 	camera.current = true
 	_set_viewmodel_no_depth_clip(_weapon)
 
+	# Soft flashlight so nearby enemies/textures stay lit
+	var torch := OmniLight3D.new()
+	torch.name = "Flashlight"
+	torch.light_color = Color(1.0, 0.95, 0.88)
+	torch.light_energy = 1.4
+	torch.omni_range = 14.0
+	torch.omni_attenuation = 1.1
+	torch.shadow_enabled = false
+	torch.position = Vector3(0.15, -0.05, -0.2)
+	camera.add_child(torch)
+
 	GameState.player_died.connect(_on_player_died)
 
 	if hurt_overlay:

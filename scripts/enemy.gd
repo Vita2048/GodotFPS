@@ -45,6 +45,13 @@ const ANIM_PATHS := {
 	"shoot": "res://assets/characters/Shooting.glb",
 	"die": "res://assets/characters/Dying.glb",
 }
+## Separate hand weapon (holstered gun is baked into the body mesh and can't be moved).
+const WEAPON_PATH := "res://assets/guns/enemy_pistol.glb"
+## Character model is scaled ×0.01 (cm→m); Kenney blaster is ~1 unit long → scale up.
+const WEAPON_SCALE := 28.0
+## Local pose in right-hand bone space (Mixamo cm after parent scale).
+const WEAPON_POS := Vector3(3.5, 8.0, 1.5)
+const WEAPON_ROT_DEG := Vector3(-90.0, 0.0, 0.0)
 
 func _ready() -> void:
 	add_to_group("enemy")
@@ -125,6 +132,10 @@ func _load_visuals_and_anims() -> void:
 	elif skeleton and _anim.get_parent() == null:
 		skeleton.get_parent().add_child(_anim)
 
+	# Attach a real handgun to the right hand (holster mesh is painted on, not movable)
+	if skeleton:
+		_attach_hand_weapon(skeleton)
+
 	# Import external clips into our AnimationPlayer (retarget Mixamo colon bones)
 	_import_external_anims()
 	_resolve_anim_names()
@@ -138,6 +149,100 @@ func _load_visuals_and_anims() -> void:
 	_disable_shadows(_model_root)
 	_prepare_meshes(_model_root)
 	print("[Enemy] spawned at ", global_position, " scale=", model.scale)
+
+
+func _attach_hand_weapon(skeleton: Skeleton3D) -> void:
+	var bone_name := "mixamorigRightHand"
+	if skeleton.find_bone(bone_name) < 0:
+		# Fallbacks for other Mixamo naming
+		for cand in ["mixamorig:RightHand", "RightHand", "Hand_R", "hand_r"]:
+			if skeleton.find_bone(cand) >= 0:
+				bone_name = cand
+				break
+	if skeleton.find_bone(bone_name) < 0:
+		push_warning("[Enemy] No right-hand bone for weapon attach")
+		return
+
+	var attach := BoneAttachment3D.new()
+	attach.name = "WeaponAttach"
+	attach.bone_name = bone_name
+	skeleton.add_child(attach)
+
+	var gun: Node3D = null
+	if ResourceLoader.exists(WEAPON_PATH):
+		var ps = load(WEAPON_PATH)
+		if ps is PackedScene:
+			gun = (ps as PackedScene).instantiate() as Node3D
+	if gun == null:
+		gun = _make_procedural_pistol()
+		print("[Enemy] using procedural pistol fallback")
+	else:
+		print("[Enemy] equipped ", WEAPON_PATH, " on ", bone_name)
+
+	attach.add_child(gun)
+	gun.scale = Vector3.ONE * WEAPON_SCALE
+	gun.position = WEAPON_POS
+	gun.rotation_degrees = WEAPON_ROT_DEG
+
+	# Make sure weapon renders on world layer and stays bright
+	_set_layers(gun, 1)
+	_disable_shadows(gun)
+	for n in gun.find_children("*", "GeometryInstance3D", true, false):
+		var gi := n as GeometryInstance3D
+		gi.layers = 1
+		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		gi.extra_cull_margin = 1.0
+		if gi is MeshInstance3D:
+			var mi := gi as MeshInstance3D
+			if mi.mesh == null:
+				continue
+			for s in mi.mesh.get_surface_count():
+				var mat := mi.get_active_material(s)
+				if mat is StandardMaterial3D:
+					var sm := (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
+					sm.cull_mode = BaseMaterial3D.CULL_DISABLED
+					sm.metallic = 0.55
+					sm.roughness = 0.35
+					sm.albedo_color = Color(1.15, 1.15, 1.2)
+					sm.emission_enabled = true
+					sm.emission = Color(0.15, 0.16, 0.18)
+					sm.emission_energy_multiplier = 0.25
+					mi.set_surface_override_material(s, sm)
+
+
+func _make_procedural_pistol() -> Node3D:
+	## Fallback if GLB missing: simple metal sidearm (still bone-attached).
+	var root := Node3D.new()
+	root.name = "ProceduralPistol"
+	var body := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.04, 0.08, 0.22)
+	body.mesh = box
+	body.position = Vector3(0, 0.02, 0.08)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.12, 0.13, 0.15)
+	mat.metallic = 0.7
+	mat.roughness = 0.3
+	body.material_override = mat
+	root.add_child(body)
+	var grip := MeshInstance3D.new()
+	var gbox := BoxMesh.new()
+	gbox.size = Vector3(0.035, 0.1, 0.05)
+	grip.mesh = gbox
+	grip.position = Vector3(0, -0.04, 0.0)
+	grip.material_override = mat
+	root.add_child(grip)
+	var barrel := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.012
+	cyl.bottom_radius = 0.012
+	cyl.height = 0.12
+	barrel.mesh = cyl
+	barrel.rotation_degrees = Vector3(90, 0, 0)
+	barrel.position = Vector3(0, 0.03, 0.2)
+	barrel.material_override = mat
+	root.add_child(barrel)
+	return root
 
 
 func _prepare_meshes(root: Node) -> void:

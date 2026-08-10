@@ -62,6 +62,8 @@ desktop.ini
 # Uncomment next lines if you want an even smaller repo and only ship GLBs:
 # assets/characters/*.fbx
 # assets/characters/police-compressed*.glb
+# Unpacked Kenney kit (we only ship enemy_pistol.glb + Textures/colormap.png)
+assets/guns/kenney_blaster/
 
 # --- Python / tooling scratch ---
 __pycache__/

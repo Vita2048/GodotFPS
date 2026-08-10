@@ -22,6 +22,8 @@ var score: int = 0
 var enemies_alive: int = 0
 var player_dead: bool = false
 var game_started: bool = false
+## True while pause / title / sector menu is up — combat and AI must idle.
+var paused: bool = false
 ## Campaign: two larger sectors
 var current_sector: int = 1
 var max_sectors: int = 2
@@ -42,87 +44,88 @@ func advance_sector() -> void:
 
 
 func enemy_count_cap() -> int:
-	var base := 2
+	## Smoother curve: Easy still has action, Hard is tougher not a wall.
+	var base := 5
 	match difficulty:
 		Difficulty.EASY:
-			base = 3
-		Difficulty.NORMAL:
 			base = 5
+		Difficulty.NORMAL:
+			base = 7
 		_:
-			base = 8
-	# Second sector is a bit denser
+			base = 9
 	if current_sector >= 2:
-		base += 2
+		base += 1
 	return base
+
 
 func enemy_damage() -> int:
 	match difficulty:
 		Difficulty.EASY:
-			return 4
+			return 5
 		Difficulty.NORMAL:
-			return 8
+			return 7
 		_:
-			return 14
+			return 11
 
 
 func enemy_max_hp() -> int:
 	match difficulty:
 		Difficulty.EASY:
-			return 45
+			return 50
 		Difficulty.NORMAL:
-			return 70
+			return 65
 		_:
-			return 100
+			return 85
 
 
 func enemy_attack_cooldown() -> float:
 	match difficulty:
 		Difficulty.EASY:
-			return 2.0
+			return 1.6
 		Difficulty.NORMAL:
-			return 1.2
+			return 1.25
 		_:
-			return 0.75
+			return 0.95
 
 
 func enemy_sight_range() -> float:
 	match difficulty:
 		Difficulty.EASY:
-			return 12.0
+			return 14.0
 		Difficulty.NORMAL:
-			return 18.0
+			return 17.0
 		_:
-			return 26.0
+			return 22.0
 
 
 func enemy_attack_range() -> float:
 	match difficulty:
 		Difficulty.EASY:
-			return 8.0
+			return 9.0
 		Difficulty.NORMAL:
 			return 11.0
 		_:
-			return 14.0
+			return 13.0
 
 
 func enemy_speed_scale() -> float:
 	match difficulty:
 		Difficulty.EASY:
-			return 0.75
+			return 0.9
 		Difficulty.NORMAL:
 			return 1.0
 		_:
-			return 1.2
+			return 1.12
 
 
 func player_max_health() -> int:
 	match difficulty:
 		Difficulty.EASY:
-			return 150
+			return 130
 		Difficulty.NORMAL:
-			return 100
+			return 110
 		_:
-			return 80
+			return 90
 
 
 func player_start_reserve() -> int:
@@ -130,31 +133,31 @@ func player_start_reserve() -> int:
 		Difficulty.EASY:
 			return 120
 		Difficulty.NORMAL:
-			return 90
+			return 100
 		_:
-			return 60
+			return 80
 
 
 func min_spawn_distance_cells() -> float:
 	## How far (in map cells) enemies must stay from player spawn
 	match difficulty:
 		Difficulty.EASY:
-			return 5.5
+			return 4.0
 		Difficulty.NORMAL:
 			return 3.5
 		_:
-			return 2.5
+			return 3.0
 
 
 func near_spawn_band() -> Vector2:
 	## Prefer enemies in this distance band (cells) from player
 	match difficulty:
 		Difficulty.EASY:
-			return Vector2(5.0, 10.0) # farther first contact
+			return Vector2(3.5, 8.0)
 		Difficulty.NORMAL:
 			return Vector2(3.0, 7.0)
 		_:
-			return Vector2(2.0, 6.0)
+			return Vector2(2.5, 6.5)
 
 
 func difficulty_label() -> String:
@@ -192,6 +195,7 @@ func reset(reset_enemy_count: bool = true) -> void:
 		enemies_alive = 0
 	player_dead = false
 	game_started = false
+	paused = false
 	health_changed.emit(health)
 	ammo_changed.emit(mag, reserve_ammo)
 	score_changed.emit(score)

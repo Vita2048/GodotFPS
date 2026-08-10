@@ -142,6 +142,7 @@ func _on_start() -> void:
 			if player.hud.has_method("_on_sector"):
 				player.hud._on_sector(GameState.current_sector, GameState.max_sectors)
 	GameState.game_started = true
+	GameState.paused = false
 	player.activate()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -151,9 +152,11 @@ func _on_start() -> void:
 
 func _on_level_cleared() -> void:
 	await get_tree().create_timer(1.0).timeout
+	GameState.paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if player:
 		player._active = false
+		player._fire_held = false
 	if GameState.current_sector < GameState.max_sectors:
 		if title_ui and title_ui.has_method("show_sector_clear"):
 			title_ui.show_sector_clear(GameState.current_sector, GameState.max_sectors)

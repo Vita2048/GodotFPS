@@ -86,11 +86,11 @@ func _refresh_diff_ui() -> void:
 	var hint := ""
 	match GameState.difficulty:
 		GameState.Difficulty.EASY:
-			hint = "2 enemies · low damage · more health/ammo"
+			hint = "~5 hostiles · forgiving damage · more HP/ammo"
 		GameState.Difficulty.NORMAL:
-			hint = "4 enemies · balanced"
+			hint = "~7 hostiles · balanced fight"
 		GameState.Difficulty.HARD:
-			hint = "7 enemies · high damage · aggressive"
+			hint = "~9 hostiles · tougher & faster"
 	_diff_label.text = "Selected: %s — %s" % [name, hint]
 	# Highlight active button
 	if _diff_row:
@@ -112,7 +112,7 @@ func show_title() -> void:
 	if start_btn:
 		start_btn.text = "CLICK TO PLAY"
 	if controls:
-		controls.text = "WASD Move  |  Shift Sprint  |  Mouse Look\nLMB Shoot  |  R Reload  |  E Open Doors  |  Esc Pause\nF9 Difficulty  |  F10 Quality  |  F11 Fullscreen  |  Q Quit"
+		controls.text = "WASD Move  |  Shift Sprint  |  Mouse Look\nHold LMB Fire  |  R Reload  |  E Open Doors  |  Esc Pause\nF9 Difficulty  |  F10 Quality  |  F11 Fullscreen  |  Q Quit"
 	if _diff_row:
 		_diff_row.visible = true
 	if _diff_label:

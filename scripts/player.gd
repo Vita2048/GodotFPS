@@ -21,6 +21,7 @@ var _bob_t: float = 0.0
 var _hurt_flash: float = 0.0
 var _level: LevelGenerator
 var _active: bool = false
+var _fire_held: bool = false
 
 func _ready() -> void:
 	add_to_group("player")
@@ -83,6 +84,8 @@ func _ignore_mouse_on_controls(node: Node) -> void:
 
 func activate() -> void:
 	_active = true
+	_fire_held = false
+	GameState.paused = false
 	# Capture must happen after the UI click is fully processed
 	call_deferred("_capture_mouse")
 
@@ -105,7 +108,9 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	if not _active or GameState.player_dead:
+	if not _active or GameState.player_dead or GameState.paused:
+		if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			_fire_held = false
 		return
 
 	if event is InputEventMouseMotion:
@@ -120,11 +125,13 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	# Direct mouse button — more reliable / lower latency than waiting for action map + unhandled
+	# Hold LMB for continuous fire
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-			_try_shoot()
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			_fire_held = mb.pressed
+			if mb.pressed:
+				_try_shoot()
 			get_viewport().set_input_as_handled()
 			return
 
@@ -141,8 +148,10 @@ func _input(event: InputEvent) -> void:
 
 
 func _pause_game() -> void:
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_fire_held = false
 	_active = false
+	GameState.paused = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var ui := get_tree().get_first_node_in_group("title_ui")
 	if ui and ui.has_method("show_paused"):
 		ui.show_paused()
@@ -158,10 +167,19 @@ func _toggle_fullscreen() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if not _active or GameState.player_dead:
+	if not _active or GameState.player_dead or GameState.paused:
+		_fire_held = false
 		velocity = Vector3.ZERO
 		move_and_slide()
 		return
+
+	# Full-auto while LMB held (also tracks OS button state if focus returned)
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		_fire_held = true
+	else:
+		_fire_held = false
+	if _fire_held:
+		_try_shoot()
 
 	# Re-assert capture if something stole the cursor (alt-tab recovery on click)
 	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):

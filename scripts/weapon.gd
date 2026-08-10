@@ -24,8 +24,8 @@ var _model: Node3D
 var _anim: AnimationPlayer
 var _reloading: bool = false
 var _fire_cd: float = 0.0
-## Semi-auto fire rate (seconds between shots). Independent of long fire anims.
-@export var fire_interval: float = 0.12
+## Full-auto fire rate (seconds between shots). Independent of long fire anims.
+@export var fire_interval: float = 0.09
 var _muzzle: Marker3D
 var _flash: OmniLight3D
 var _flash_timer: float = 0.0

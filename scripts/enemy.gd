@@ -575,6 +575,11 @@ func _play(anim_name: String, speed: float = 1.0) -> void:
 func _physics_process(delta: float) -> void:
 	if state == State.DEAD:
 		return
+	# Freeze combat while pause / menus are up
+	if GameState == null or GameState.paused or not GameState.game_started or GameState.player_dead:
+		velocity = Vector3.ZERO
+		move_and_slide()
+		return
 	if _player == null or not is_instance_valid(_player):
 		_find_player()
 		return
@@ -663,6 +668,8 @@ func _has_line_of_sight() -> bool:
 
 
 func _try_attack() -> void:
+	if GameState == null or GameState.paused or not GameState.game_started or GameState.player_dead:
+		return
 	if _attack_cd > 0.0:
 		return
 	if not _has_line_of_sight():
@@ -675,6 +682,8 @@ func _try_attack() -> void:
 
 func _deal_damage_to_player() -> void:
 	if state == State.DEAD or _player == null:
+		return
+	if GameState == null or GameState.paused or not GameState.game_started or GameState.player_dead:
 		return
 	if not _has_line_of_sight():
 		return

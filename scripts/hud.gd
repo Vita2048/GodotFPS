@@ -41,16 +41,19 @@ func _update_fps_label() -> void:
 	var q := "LOW"
 	if QualitySettings:
 		q = QualitySettings.label()
-	fps_label.text = "%d FPS  |  Quality %s (F10)" % [Engine.get_frames_per_second(), q]
+	var diff := GameState.difficulty_label() if GameState else "?"
+	fps_label.text = "%d FPS  |  %s  |  Quality %s (F10)" % [Engine.get_frames_per_second(), diff, q]
 
 
 func _on_health(v: int) -> void:
 	if health_label:
 		health_label.text = str(v)
 	if face_label:
-		if v > 75:
+		var max_h: int = GameState.max_health if GameState else 100
+		var ratio := float(v) / float(maxi(max_h, 1))
+		if ratio > 0.75:
 			face_label.text = "😐"
-		elif v > 40:
+		elif ratio > 0.4:
 			face_label.text = "😟"
 		elif v > 0:
 			face_label.text = "🤕"

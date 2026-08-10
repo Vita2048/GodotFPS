@@ -569,53 +569,76 @@ func _place_props() -> void:
 
 
 func _place_spawns() -> void:
+	var min_cells: float = 3.5
+	var band := Vector2(3.0, 7.0)
+	var enemy_cap := 4
+	if GameState:
+		min_cells = GameState.min_spawn_distance_cells()
+		band = GameState.near_spawn_band()
+		enemy_cap = GameState.enemy_count_cap()
+	if not performance_mode:
+		enemy_cap = mini(enemy_cap + 2, 12)
+
 	var candidates: Array[Vector3] = []
 	for z in range(1, map_height - 1):
 		for x in range(1, map_width - 1):
 			if grid[z][x] != TILE_EMPTY and grid[z][x] != TILE_DOOR:
 				continue
 			var p := Vector3(x * CELL + CELL * 0.5, 0.0, z * CELL + CELL * 0.5)
-			if p.distance_to(_spawn_pos) < CELL * 3.5:
+			if p.distance_to(_spawn_pos) < CELL * min_cells:
 				continue
 			candidates.append(p)
 
 	candidates.shuffle()
-	# Prefer spawns in front of the start room (medium distance) so enemies are visible early
 	var near_player: Array[Vector3] = []
 	var far_player: Array[Vector3] = []
 	for p in candidates:
-		var d := p.distance_to(_spawn_pos)
-		if d >= CELL * 2.0 and d <= CELL * 6.0:
+		var d_cells := p.distance_to(_spawn_pos) / CELL
+		if d_cells >= band.x and d_cells <= band.y:
 			near_player.append(p)
 		else:
 			far_player.append(p)
 	near_player.shuffle()
 	far_player.shuffle()
 	var ordered: Array[Vector3] = []
-	ordered.append_array(near_player)
-	ordered.append_array(far_player)
+	# Easy: prefer far spawns first so you aren't dogpiled; Hard: near first
+	if GameState and GameState.difficulty == GameState.Difficulty.EASY:
+		ordered.append_array(far_player)
+		ordered.append_array(near_player)
+	else:
+		ordered.append_array(near_player)
+		ordered.append_array(far_player)
 
-	var enemy_count := mini(6 if performance_mode else 12, maxi(1, ordered.size()))
-	# Always place at least one enemy near the start so the player can see them
-	if near_player.size() > 0:
-		_enemy_spawns.append(near_player[0])
-		enemy_count = maxi(enemy_count, 1)
+	var enemy_count := mini(enemy_cap, maxi(1, ordered.size()))
 	for i in ordered.size():
 		if _enemy_spawns.size() >= enemy_count:
 			break
 		var p: Vector3 = ordered[i]
-		if _enemy_spawns.has(p):
+		var already := false
+		for e in _enemy_spawns:
+			if e.distance_to(p) < 0.1:
+				already = true
+				break
+		if already:
 			continue
 		_enemy_spawns.append(p)
 
-	var pickup_count := mini(6 if performance_mode else 10, maxi(0, candidates.size() / 5))
+	var pickup_count := mini(8 if (GameState and GameState.difficulty == GameState.Difficulty.EASY) else 6, maxi(0, candidates.size() / 4))
 	var pi := 0
 	while _pickup_spawns.size() < pickup_count and pi < candidates.size():
 		var pp: Vector3 = candidates[pi]
 		pi += 1
-		if _enemy_spawns.has(pp):
+		var on_enemy := false
+		for e in _enemy_spawns:
+			if e.distance_to(pp) < 0.1:
+				on_enemy = true
+				break
+		if on_enemy:
 			continue
 		var kind := "ammo" if _rng.randf() < 0.55 else "health"
+		# Easy: slightly more health packs
+		if GameState and GameState.difficulty == GameState.Difficulty.EASY and _rng.randf() < 0.35:
+			kind = "health"
 		_pickup_spawns.append({"pos": pp, "type": kind})
 
 

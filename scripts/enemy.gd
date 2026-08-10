@@ -46,6 +46,7 @@ const ANIM_PATHS := {
 
 func _ready() -> void:
 	add_to_group("enemy")
+	_apply_difficulty_stats()
 	hp = max_hp
 	collision_layer = 4
 	collision_mask = 1
@@ -53,8 +54,20 @@ func _ready() -> void:
 	GameState.register_enemy()
 	_setup_body()
 	_load_visuals_and_anims()
-	# Find player later
 	call_deferred("_find_player")
+
+
+func _apply_difficulty_stats() -> void:
+	if GameState == null:
+		return
+	max_hp = GameState.enemy_max_hp()
+	damage = GameState.enemy_damage()
+	attack_cooldown = GameState.enemy_attack_cooldown()
+	sight_range = GameState.enemy_sight_range()
+	attack_range = GameState.enemy_attack_range()
+	var spd: float = GameState.enemy_speed_scale()
+	walk_speed = 2.2 * spd
+	run_speed = 4.0 * spd
 
 
 func _setup_body() -> void:

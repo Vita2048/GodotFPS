@@ -15,10 +15,12 @@ func _ready() -> void:
 	# Apply Low quality after env exists (also runs from autoload, this refreshes env refs)
 	if QualitySettings:
 		QualitySettings.apply(QualitySettings.Quality.LOW)
+	if GameState:
+		GameState.set_difficulty(GameState.Difficulty.EASY)
 	if title_ui:
 		title_ui.start_pressed.connect(_on_start)
-		if title_ui.controls:
-			title_ui.controls.text += "\nF10 Quality  |  F11 Fullscreen  |  Q Quit"
+		if title_ui.has_signal("difficulty_changed"):
+			title_ui.difficulty_changed.connect(_on_difficulty_changed)
 	_build_level()
 	if player:
 		player.set_level(level)
@@ -27,6 +29,20 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("quit_game"):
 		get_tree().quit()
+	elif event.is_action_pressed("difficulty_cycle"):
+		# Menu only — do not retarget mid-fight
+		if _can_change_difficulty():
+			GameState.cycle_difficulty()
+			_build_level()
+
+
+func _can_change_difficulty() -> bool:
+	return not GameState.game_started or GameState.player_dead or (title_ui != null and title_ui.visible and not player._active)
+
+
+func _on_difficulty_changed() -> void:
+	if _can_change_difficulty():
+		_build_level()
 
 
 func _setup_environment() -> void:

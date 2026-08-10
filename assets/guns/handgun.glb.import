@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://hssupb2o00i3"
-path="res://.godot/imported/enemy_pistol.glb-c6bca777132aab22376062fa6966aa86.scn"
+uid="uid://c4surw3byqfx3"
+path="res://.godot/imported/handgun.glb-eeac4ed9bc7d8856dbd8a9958261a72f.scn"
 
 [deps]
 
-source_file="res://assets/guns/enemy_pistol.glb"
-dest_files=["res://.godot/imported/enemy_pistol.glb-c6bca777132aab22376062fa6966aa86.scn"]
+source_file="res://assets/guns/handgun.glb"
+dest_files=["res://.godot/imported/handgun.glb-eeac4ed9bc7d8856dbd8a9958261a72f.scn"]
 
 [params]
 

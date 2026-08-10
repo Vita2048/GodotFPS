@@ -46,12 +46,11 @@ const ANIM_PATHS := {
 	"die": "res://assets/characters/Dying.glb",
 }
 ## Separate hand weapon (holstered gun is baked into the body mesh and can't be moved).
-const WEAPON_PATH := "res://assets/guns/enemy_pistol.glb"
-## Character model is scaled ×0.01 (cm→m); Kenney blaster is ~1 unit long → scale up.
-const WEAPON_SCALE := 28.0
-## Local pose in right-hand bone space (Mixamo cm after parent scale).
-const WEAPON_POS := Vector3(3.5, 8.0, 1.5)
-const WEAPON_ROT_DEG := Vector3(-90.0, 0.0, 0.0)
+const WEAPON_PATH := "res://assets/guns/handgun.glb"
+## Defaults if resources/enemy_weapon_pose.tres is missing (use Weapon Tuner to edit).
+const WEAPON_TARGET_LENGTH_CM := 22.0
+const WEAPON_POS := Vector3(6.7, 17.6, 4.5)
+const WEAPON_ROT_DEG := Vector3(10.0, -2.0, -92.0)
 
 func _ready() -> void:
 	add_to_group("enemy")
@@ -154,7 +153,6 @@ func _load_visuals_and_anims() -> void:
 func _attach_hand_weapon(skeleton: Skeleton3D) -> void:
 	var bone_name := "mixamorigRightHand"
 	if skeleton.find_bone(bone_name) < 0:
-		# Fallbacks for other Mixamo naming
 		for cand in ["mixamorig:RightHand", "RightHand", "Hand_R", "hand_r"]:
 			if skeleton.find_bone(cand) >= 0:
 				bone_name = cand
@@ -168,6 +166,25 @@ func _attach_hand_weapon(skeleton: Skeleton3D) -> void:
 	attach.bone_name = bone_name
 	skeleton.add_child(attach)
 
+	# Pose from Weapon Tuner resource (res://resources/enemy_weapon_pose.tres)
+	const WeaponPoseScript = preload("res://scripts/enemy_weapon_pose.gd")
+	var pose: Resource = WeaponPoseScript.load_or_default()
+	var wpos: Vector3 = WEAPON_POS
+	var wrot: Vector3 = WEAPON_ROT_DEG
+	var wlen: float = WEAPON_TARGET_LENGTH_CM
+	if pose != null:
+		wpos = pose.get("position") as Vector3
+		wrot = pose.get("rotation_degrees") as Vector3
+		wlen = float(pose.get("length_cm"))
+		if wlen <= 0.0:
+			wlen = WEAPON_TARGET_LENGTH_CM
+
+	var holder := Node3D.new()
+	holder.name = "WeaponHolder"
+	attach.add_child(holder)
+	holder.position = wpos
+	holder.rotation_degrees = wrot
+
 	var gun: Node3D = null
 	if ResourceLoader.exists(WEAPON_PATH):
 		var ps = load(WEAPON_PATH)
@@ -177,37 +194,105 @@ func _attach_hand_weapon(skeleton: Skeleton3D) -> void:
 		gun = _make_procedural_pistol()
 		print("[Enemy] using procedural pistol fallback")
 	else:
-		print("[Enemy] equipped ", WEAPON_PATH, " on ", bone_name)
+		_strip_sketchfab_helpers(gun)
+		print("[Enemy] equipped ", WEAPON_PATH, " on ", bone_name, " pose=", wpos, wrot, " len=", wlen)
 
-	attach.add_child(gun)
-	gun.scale = Vector3.ONE * WEAPON_SCALE
-	gun.position = WEAPON_POS
-	gun.rotation_degrees = WEAPON_ROT_DEG
+	holder.add_child(gun)
+	gun.position = Vector3.ZERO
+	gun.rotation = Vector3.ZERO
+	gun.scale = Vector3.ONE
 
-	# Make sure weapon renders on world layer and stays bright
+	# Auto-fit size in skeleton cm-space (parent model is ×0.01 → meters)
+	var aabb := _weapon_local_aabb(gun)
+	var longest := maxf(aabb.size.x, maxf(aabb.size.y, aabb.size.z))
+	if longest > 0.0001:
+		var s: float = wlen / longest
+		gun.scale = Vector3.ONE * s
+		var center: Vector3 = (aabb.position + aabb.size * 0.5) * s
+		gun.position = -center
+
 	_set_layers(gun, 1)
 	_disable_shadows(gun)
 	for n in gun.find_children("*", "GeometryInstance3D", true, false):
 		var gi := n as GeometryInstance3D
 		gi.layers = 1
 		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		gi.extra_cull_margin = 1.0
+		gi.extra_cull_margin = 1.5
+		gi.custom_aabb = AABB(Vector3(-0.5, -0.5, -0.5), Vector3(1, 1, 1))
 		if gi is MeshInstance3D:
 			var mi := gi as MeshInstance3D
 			if mi.mesh == null:
 				continue
-			for s in mi.mesh.get_surface_count():
-				var mat := mi.get_active_material(s)
+			for s_i in mi.mesh.get_surface_count():
+				var mat := mi.get_active_material(s_i)
 				if mat is StandardMaterial3D:
 					var sm := (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
 					sm.cull_mode = BaseMaterial3D.CULL_DISABLED
-					sm.metallic = 0.55
-					sm.roughness = 0.35
-					sm.albedo_color = Color(1.15, 1.15, 1.2)
+					sm.metallic = minf(sm.metallic, 0.65)
+					sm.roughness = clampf(sm.roughness, 0.25, 0.7)
+					sm.albedo_color = Color(1.1, 1.1, 1.12)
 					sm.emission_enabled = true
-					sm.emission = Color(0.15, 0.16, 0.18)
-					sm.emission_energy_multiplier = 0.25
-					mi.set_surface_override_material(s, sm)
+					if sm.albedo_texture:
+						sm.emission_texture = sm.albedo_texture
+						sm.emission = Color(1, 1, 1)
+						sm.emission_energy_multiplier = 0.2
+						sm.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
+					else:
+						sm.emission = Color(0.12, 0.12, 0.14)
+						sm.emission_energy_multiplier = 0.2
+					mi.set_surface_override_material(s_i, sm)
+
+
+func _strip_sketchfab_helpers(root: Node) -> void:
+	var to_free: Array[Node] = []
+	for n in root.find_children("*", "", true, false):
+		var lname := String(n.name).to_lower()
+		if n is Camera3D or n is Light3D:
+			to_free.append(n)
+		elif lname.begins_with("camera") or lname.begins_with("sun") or lname.begins_with("hemi"):
+			to_free.append(n)
+	for n in to_free:
+		if is_instance_valid(n):
+			n.queue_free()
+
+
+func _weapon_local_aabb(root: Node3D) -> AABB:
+	var result := AABB()
+	var first := true
+	for n in root.find_children("*", "VisualInstance3D", true, false):
+		var vi := n as VisualInstance3D
+		var a := vi.get_aabb()
+		var xf: Transform3D
+		if root.is_inside_tree() and vi.is_inside_tree():
+			xf = root.global_transform.affine_inverse() * vi.global_transform
+		else:
+			xf = _local_xform_to(root, vi)
+		var corners := [
+			xf * a.position,
+			xf * (a.position + Vector3(a.size.x, 0, 0)),
+			xf * (a.position + Vector3(0, a.size.y, 0)),
+			xf * (a.position + Vector3(0, 0, a.size.z)),
+			xf * (a.position + a.size),
+		]
+		for c in corners:
+			if first:
+				result = AABB(c, Vector3.ZERO)
+				first = false
+			else:
+				result = result.expand(c)
+	if first:
+		return AABB(Vector3(-0.1, -0.05, -0.2), Vector3(0.2, 0.1, 0.4))
+	return result
+
+
+func _local_xform_to(root: Node, node: Node) -> Transform3D:
+	var xform := Transform3D.IDENTITY
+	var cur: Node = node
+	while cur != null and cur != root:
+		if cur is Node3D:
+			xform = (cur as Node3D).transform * xform
+		cur = cur.get_parent()
+	return xform
 
 
 func _make_procedural_pistol() -> Node3D:

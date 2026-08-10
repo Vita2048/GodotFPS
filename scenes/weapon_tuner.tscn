@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://c8mfg4u43mtue"]
+
+[ext_resource type="Script" path="res://scripts/weapon_tuner.gd" id="1_tuner"]
+
+[node name="WeaponTuner" type="Node3D"]
+script = ExtResource("1_tuner")

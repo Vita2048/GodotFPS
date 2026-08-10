@@ -2,6 +2,18 @@
 
 Godot 4.7 first-person shooter with a procedural dungeon, AKS-74U viewmodel, and Mixamo-animated police enemies.
 
+## Enemy weapon orientation tuner
+
+To align the enemy handgun without guessing numbers:
+
+1. In Godot: **Project → Run Specific Scene** (or open `scenes/weapon_tuner.tscn` and press **F6**)
+2. Orbit with the mouse, use sliders for position / rotation / size
+3. Preview animations with keys **1–5** (walk / pistol / shoot / run / die)
+4. Press **S** to save → `resources/enemy_weapon_pose.tres` (the game loads this automatically)
+5. Press **C** to copy values to the clipboard
+
+Then run the main game as usual to verify.
+
 ## Clone & open
 
 ```bash

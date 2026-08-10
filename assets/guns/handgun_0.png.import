@@ -2,20 +2,24 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b8jh52fvnap0w"
-path="res://.godot/imported/colormap.png-ffa3bd2abc3a400932946a8d4c64c9b6.ctex"
+uid="uid://b6jy0xw01e0sh"
+path.s3tc="res://.godot/imported/handgun_0.png-9d641b3e3218122e3422a9e1a63afc65.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+}
+generator_parameters={
+"md5": "ced98506d32aa98e9facd10ea629f72f"
 }
 
 [deps]
 
-source_file="res://assets/guns/Textures/colormap.png"
-dest_files=["res://.godot/imported/colormap.png-ffa3bd2abc3a400932946a8d4c64c9b6.ctex"]
+source_file="res://assets/guns/handgun_0.png"
+dest_files=["res://.godot/imported/handgun_0.png-9d641b3e3218122e3422a9e1a63afc65.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -23,7 +27,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -37,4 +41,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

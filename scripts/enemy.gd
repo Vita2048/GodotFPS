@@ -767,17 +767,85 @@ func _deal_damage_to_player() -> void:
 	SFX.play_3d(get_parent(), "shoot", global_position + Vector3(0, 1.3, 0), -10.0)
 
 
-func take_damage(amount: int, _hit_pos: Vector3 = Vector3.ZERO) -> void:
+func take_damage(amount: int, hit_pos: Vector3 = Vector3.ZERO) -> void:
 	if state == State.DEAD:
 		return
 	hp -= amount
 	_aware = true
+	var at := hit_pos
+	if at == Vector3.ZERO:
+		at = global_position + Vector3(0, 1.2, 0)
+	_spawn_blood(at, hp <= 0)
 	if hp <= 0:
 		# Restore textures first so the death anim keeps original look
 		_restore_materials()
 		_die()
 	else:
 		_flash_hurt()
+
+
+func _spawn_blood(pos: Vector3, fatal: bool) -> void:
+	var host := get_parent()
+	if host == null:
+		host = self
+	var burst := CPUParticles3D.new()
+	burst.emitting = false
+	burst.one_shot = true
+	burst.explosiveness = 1.0
+	burst.amount = 42 if fatal else 26
+	burst.lifetime = 0.55 if fatal else 0.4
+	burst.local_coords = false
+	burst.direction = Vector3(0, 0.35, 0)
+	burst.spread = 62.0
+	burst.initial_velocity_min = 2.4 if fatal else 1.8
+	burst.initial_velocity_max = 7.5 if fatal else 5.2
+	burst.gravity = Vector3(0, -14.0, 0)
+	burst.damping_min = 1.0
+	burst.damping_max = 3.0
+	burst.scale_amount_min = 0.35
+	burst.scale_amount_max = 1.15
+	burst.color = Color(0.62, 0.02, 0.04)
+	var drop := SphereMesh.new()
+	drop.radius = 0.028
+	drop.height = 0.056
+	drop.radial_segments = 6
+	drop.rings = 3
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.55, 0.01, 0.03)
+	mat.roughness = 0.45
+	mat.metallic = 0.0
+	mat.emission_enabled = true
+	mat.emission = Color(0.35, 0.0, 0.02)
+	mat.emission_energy_multiplier = 0.45
+	drop.material = mat
+	burst.mesh = drop
+	host.add_child(burst)
+	burst.global_position = pos
+	burst.emitting = true
+
+	# Fast expanding splash so the hit reads even at a distance
+	var splash := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.04
+	sm.height = 0.08
+	splash.mesh = sm
+	var smat := StandardMaterial3D.new()
+	smat.albedo_color = Color(0.5, 0.0, 0.02, 0.7)
+	smat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	smat.emission_enabled = true
+	smat.emission = Color(0.4, 0.0, 0.02)
+	smat.emission_energy_multiplier = 0.8
+	smat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	splash.material_override = smat
+	host.add_child(splash)
+	splash.global_position = pos
+	var tw := splash.create_tween()
+	var end_s := 3.2 if fatal else 2.1
+	tw.tween_property(splash, "scale", Vector3.ONE * end_s, 0.16)
+	tw.parallel().tween_property(smat, "albedo_color:a", 0.0, 0.16)
+	tw.tween_callback(splash.queue_free)
+
+	get_tree().create_timer(burst.lifetime + 0.2).timeout.connect(burst.queue_free)
 
 
 func _flash_hurt() -> void:

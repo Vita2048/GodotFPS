@@ -243,11 +243,13 @@ func _try_shoot() -> void:
 	if shoot_ray.is_colliding():
 		var collider := shoot_ray.get_collider()
 		var hit_pos := shoot_ray.get_collision_point()
-		_spawn_impact(hit_pos, shoot_ray.get_collision_normal())
+		var hit_n := shoot_ray.get_collision_normal()
 		var enemy := _find_enemy(collider)
 		if enemy and enemy.has_method("take_damage"):
 			enemy.take_damage(28, hit_pos)
 			SFX.play_2d(self, "hit", -8.0)
+		else:
+			_spawn_impact(hit_pos, hit_n)
 
 
 func _find_enemy(node: Node) -> Node:

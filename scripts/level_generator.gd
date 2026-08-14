@@ -112,6 +112,8 @@ func _build_materials() -> void:
 	var wood_rough := _try_load("res://assets/textures/wood_rough.jpg")
 
 	_mats["brick"] = _pbr(brick_diff, brick_nor, brick_rough, 0.9, 0.0, 1.2)
+	_mats["stone"] = _pbr(brick_diff, brick_nor, brick_rough, 0.88, 0.0, 0.7)
+	(_mats["stone"] as StandardMaterial3D).albedo_color = Color(0.82, 0.78, 0.72)
 	_mats["concrete"] = _pbr(concrete_diff, concrete_nor, concrete_rough, 0.92, 0.0, 2.0)
 	_mats["metal"] = _pbr(metal_diff, metal_nor, metal_rough, 0.45, 0.85, 1.5)
 	_mats["wood"] = _pbr(wood_diff, wood_nor, wood_rough, 0.75, 0.0, 1.5)
@@ -812,38 +814,56 @@ func _cell_room_index(x: int, z: int) -> int:
 
 
 func _place_room_doors() -> void:
-	## One doorway per opening that actually enters a room. Hallways stay open.
+	## Doors live in the corridor neck that enters a room — never in the room
+	## interior and never along a long open wall.
+	var used: Dictionary = {}
 	for ri in rooms.size():
 		var room: Rect2i = rooms[ri]
-		var openings: Array[Vector2i] = []
+		var necks: Array[Vector2i] = []
 		for z in range(room.position.y, room.position.y + room.size.y):
 			for x in range(room.position.x, room.position.x + room.size.x):
-				if grid[z][x] != TILE_EMPTY:
+				if not _walkable_tile(grid[z][x]):
 					continue
-				var on_edge := (
-					x == room.position.x
-					or z == room.position.y
-					or x == room.position.x + room.size.x - 1
-					or z == room.position.y + room.size.y - 1
-				)
-				if not on_edge:
-					continue
-				if _is_room_exit(room, x, z):
-					openings.append(Vector2i(x, z))
-		var clusters := _cluster_cells(openings)
+				for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+					var nx: int = x + d.x
+					var nz: int = z + d.y
+					if nx < 0 or nz < 0 or nx >= map_width or nz >= map_height:
+						continue
+					if room.has_point(Vector2i(nx, nz)):
+						continue
+					if not _walkable_tile(grid[nz][nx]):
+						continue
+					if _cell_room_index(nx, nz) == ri:
+						continue
+					# Corridor (or other room) cell just outside this room
+					if _is_door_neck(nx, nz):
+						necks.append(Vector2i(nx, nz))
+		var clusters := _cluster_cells(necks)
 		for cluster in clusters:
 			var cells: Array = cluster
-			# A real doorway is 1–3 cells. Wider shared edges get walled down to 2.
 			cells.sort_custom(func(a, b): return a.x < b.x or (a.x == b.x and a.y < b.y))
+			# At most a 2-wide door per entrance
 			var keep := mini(2, cells.size())
-			var mid := cells.size() / 2
-			var start_i := clampi(mid - keep / 2, 0, cells.size() - keep)
-			for i in cells.size():
-				var c: Vector2i = cells[i]
-				if i >= start_i and i < start_i + keep:
-					grid[c.y][c.x] = TILE_DOOR
-				else:
-					grid[c.y][c.x] = TILE_WALL
+			var mid := int(cells.size() / 2.0)
+			var start_i := clampi(mid - int(keep / 2.0), 0, cells.size() - keep)
+			for i in keep:
+				var c: Vector2i = cells[start_i + i]
+				var key := "%d_%d" % [c.x, c.y]
+				if used.has(key):
+					continue
+				used[key] = true
+				grid[c.y][c.x] = TILE_DOOR
+
+
+func _is_door_neck(x: int, z: int) -> bool:
+	## True if this cell is a narrow passage (walls on two opposite sides).
+	if x <= 0 or z <= 0 or x >= map_width - 1 or z >= map_height - 1:
+		return false
+	var wall_e: bool = grid[z][x + 1] == TILE_WALL
+	var wall_w: bool = grid[z][x - 1] == TILE_WALL
+	var wall_n: bool = grid[z - 1][x] == TILE_WALL
+	var wall_s: bool = grid[z + 1][x] == TILE_WALL
+	return (wall_e and wall_w and not wall_n and not wall_s) or (wall_n and wall_s and not wall_e and not wall_w)
 
 
 func _is_room_exit(room: Rect2i, x: int, z: int) -> bool:
@@ -883,33 +903,34 @@ func _cluster_cells(cells: Array[Vector2i]) -> Array:
 
 
 func _carve_upper_floors() -> void:
-	## Always build a second storey in the first large rooms so stairs are findable.
+	## Stairwell along the west wall; second floor only BEYOND the landing
+	## so the well stays open and you don't walk through a slab.
 	var lofted := 0
 	for ri in rooms.size():
 		var room: Rect2i = rooms[ri]
-		if room.size.x < 6 or room.size.y < 6:
+		if room.size.x < 6 or room.size.y < 7:
 			continue
-		if lofted >= 4:
+		if lofted >= 3:
 			break
-		# Stair run: 2 wide × 4 long along the west interior, climbing +Z.
 		var sx := room.position.x + 1
 		var sz := room.position.y + 1
-		var run := mini(4, room.size.y - 3)
+		var run := mini(4, room.size.y - 4)
 		if run < 3:
 			continue
 		for i in run:
 			var cz := sz + i
-			if cz >= room.position.y + room.size.y - 1:
-				break
 			if grid[cz][sx] != TILE_WALL and grid[cz][sx] != TILE_DOOR:
 				grid[cz][sx] = TILE_STAIR
-			if sx + 1 < room.position.x + room.size.x - 1 and grid[cz][sx + 1] != TILE_WALL and grid[cz][sx + 1] != TILE_DOOR:
-				grid[cz][sx + 1] = TILE_STAIR
-		# Upper floor covers the rest of the interior (not the stair strip)
-		for z in range(room.position.y + 1, room.position.y + room.size.y - 1):
+			if sx + 1 < room.position.x + room.size.x - 1:
+				if grid[cz][sx + 1] != TILE_WALL and grid[cz][sx + 1] != TILE_DOOR:
+					grid[cz][sx + 1] = TILE_STAIR
+		# Landing + upper floor start after the last stair cell
+		var land_z := sz + run
+		if land_z < room.position.y + room.size.y - 1:
 			for x in range(room.position.x + 1, room.position.x + room.size.x - 1):
-				if grid[z][x] == TILE_EMPTY:
-					grid[z][x] = TILE_FLOOR2
+				for z in range(land_z, room.position.y + room.size.y - 1):
+					if grid[z][x] == TILE_EMPTY:
+						grid[z][x] = TILE_FLOOR2
 		lofted += 1
 
 
@@ -947,10 +968,9 @@ func _add_stairs(parent: Node3D, origin: Vector3, x: int, z: int) -> void:
 
 	var dir := Vector3(float(dir_i.x), 0.0, float(dir_i.y))
 	var length := float(run_cells) * CELL
-	var width := CELL * 1.85
-	# Ramp from the near edge of the first cell up to the far edge of the last.
-	var bottom := origin - dir * (CELL * 0.45) + Vector3(0, 0.04, 0)
-	var top := origin + dir * (length - CELL * 0.45) + Vector3(0, FLOOR2_Y + 0.02, 0)
+	var width := CELL * 1.9
+	var bottom := origin - dir * (CELL * 0.48) + Vector3(0, 0.02, 0)
+	var top := origin + dir * (length - CELL * 0.05) + Vector3(0, FLOOR2_Y, 0)
 	var along := top - bottom
 	var hyp := along.length()
 	var slope_dir := along / hyp
@@ -963,40 +983,71 @@ func _add_stairs(parent: Node3D, origin: Vector3, x: int, z: int) -> void:
 		normal = -normal
 		right = -right
 
+	# Thin walkable ramp: top face is the walk surface (not a thick plate you sink into)
+	var ramp_thick := 0.08
 	var ramp := StaticBody3D.new()
 	ramp.name = "StairRamp"
-	ramp.transform = Transform3D(Basis(right, normal, slope_dir).orthonormalized(), (bottom + top) * 0.5)
+	var ramp_basis := Basis(right, normal, slope_dir).orthonormalized()
+	ramp.transform = Transform3D(ramp_basis, (bottom + top) * 0.5 - normal * (ramp_thick * 0.5))
 	var col := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
-	shape.size = Vector3(width, 0.22, hyp)
+	shape.size = Vector3(width, ramp_thick, hyp)
 	col.shape = shape
 	ramp.add_child(col)
 	ramp.collision_layer = 1
 	parent.add_child(ramp)
 
-	# Visual treads only (no collision — the ramp is what you walk on)
-	var steps := run_cells * 5
+	# Stone treads sitting just under the walk surface
+	var steps := run_cells * 6
+	var tread_d := hyp / float(steps)
 	for i in steps:
 		var t := (float(i) + 0.5) / float(steps)
-		var pos := bottom.lerp(top, t) + normal * 0.06
+		var pos: Vector3 = bottom.lerp(top, t) - normal * 0.07
 		var mi := MeshInstance3D.new()
 		var box := BoxMesh.new()
-		box.size = Vector3(width * 0.95, 0.08, hyp / float(steps) * 0.9)
+		box.size = Vector3(width * 0.98, 0.14, tread_d * 0.92)
 		mi.mesh = box
-		mi.material_override = _mats["warning"] if i % 2 == 0 else _mats["metal"]
-		mi.transform = Transform3D(Basis(right, normal, slope_dir).orthonormalized(), pos)
+		mi.material_override = _mats["stone"]
+		mi.transform = Transform3D(ramp_basis, pos)
 		parent.add_child(mi)
 
+	# Stone side walls / stringers
 	for side in [-1.0, 1.0]:
+		var side_f := float(side)
+		var stringer := MeshInstance3D.new()
+		var sbox := BoxMesh.new()
+		sbox.size = Vector3(0.16, 0.55, hyp)
+		stringer.mesh = sbox
+		stringer.material_override = _mats["stone"]
+		var spos: Vector3 = (bottom + top) * 0.5 + right * (side_f * width * 0.52) + Vector3(0, 0.2, 0)
+		stringer.transform = Transform3D(ramp_basis, spos)
+		parent.add_child(stringer)
 		var rail := MeshInstance3D.new()
 		var rbox := BoxMesh.new()
-		rbox.size = Vector3(0.07, 0.07, hyp)
+		rbox.size = Vector3(0.06, 0.06, hyp)
 		rail.mesh = rbox
 		rail.material_override = _mats["trim"]
-		var side_f := float(side)
-		var rail_pos: Vector3 = (bottom + top) * 0.5 + right * (side_f * width * 0.48) + normal * 0.55
-		rail.transform = Transform3D(Basis(right, normal, slope_dir).orthonormalized(), rail_pos)
+		var rail_pos: Vector3 = (bottom + top) * 0.5 + right * (side_f * width * 0.52) + normal * 0.7
+		rail.transform = Transform3D(ramp_basis, rail_pos)
 		parent.add_child(rail)
+
+	# Stone landing at the top so you step off onto a tile, not a floating plate
+	var land := MeshInstance3D.new()
+	var lbox := BoxMesh.new()
+	lbox.size = Vector3(width, 0.14, CELL * 0.7)
+	land.mesh = lbox
+	land.material_override = _mats["stone"]
+	land.position = top + dir * (CELL * 0.25) + Vector3(0, 0.0, 0)
+	parent.add_child(land)
+	var land_body := StaticBody3D.new()
+	land_body.position = land.position
+	var lcol := CollisionShape3D.new()
+	var lshape := BoxShape3D.new()
+	lshape.size = lbox.size
+	lcol.shape = lshape
+	land_body.add_child(lcol)
+	land_body.collision_layer = 1
+	parent.add_child(land_body)
 
 
 func _add_upper_floor(parent: Node3D, origin: Vector3) -> void:
@@ -1004,8 +1055,8 @@ func _add_upper_floor(parent: Node3D, origin: Vector3) -> void:
 	var box := BoxMesh.new()
 	box.size = Vector3(CELL, 0.16, CELL)
 	deck.mesh = box
-	deck.material_override = _mats["wood"]
-	deck.position = origin + Vector3(0, FLOOR2_Y, 0)
+	deck.material_override = _mats["stone"]
+	deck.position = origin + Vector3(0, FLOOR2_Y - 0.06, 0)
 	parent.add_child(deck)
 
 	var body := StaticBody3D.new()
@@ -1017,15 +1068,6 @@ func _add_upper_floor(parent: Node3D, origin: Vector3) -> void:
 	body.add_child(col)
 	body.collision_layer = 1
 	parent.add_child(body)
-
-	var rail := MeshInstance3D.new()
-	var rbox := BoxMesh.new()
-	rbox.size = Vector3(CELL, 0.06, CELL)
-	rail.mesh = rbox
-	rail.material_override = _mats["trim"]
-	rail.position = origin + Vector3(0, FLOOR2_Y + 0.95, 0)
-	rail.scale = Vector3(1.02, 1.0, 1.02)
-	parent.add_child(rail)
 
 
 func _place_lights() -> void:

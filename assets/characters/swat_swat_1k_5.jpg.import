@@ -2,20 +2,20 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://djmbbl0xn20hd"
-path.s3tc="res://.godot/imported/swat_6.png-0afbf6f604b6eea9bc959fc9ba04aa85.s3tc.ctex"
+uid="uid://uw2sae853d2j"
+path.s3tc="res://.godot/imported/swat_swat_1k_5.jpg-7e7bb09415df99ed9021c170da7668a5.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "bfb632e72aad396abb84e1fc7957f0f8"
+"md5": "71fa5303122d43095d1138b905211f08"
 }
 
 [deps]
 
-source_file="res://assets/characters/swat_6.png"
-dest_files=["res://.godot/imported/swat_6.png-0afbf6f604b6eea9bc959fc9ba04aa85.s3tc.ctex"]
+source_file="res://assets/characters/swat_swat_1k_5.jpg"
+dest_files=["res://.godot/imported/swat_swat_1k_5.jpg-7e7bb09415df99ed9021c170da7668a5.s3tc.ctex"]
 
 [params]
 
@@ -30,7 +30,7 @@ compress/channel_pack=0
 mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=1
-roughness/src_normal="res://assets/characters/swat_6.png"
+roughness/src_normal="res://assets/characters/swat_swat_1k_5.jpg"
 process/channel_remap/red=0
 process/channel_remap/green=1
 process/channel_remap/blue=2

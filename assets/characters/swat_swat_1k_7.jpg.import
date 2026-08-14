@@ -2,35 +2,34 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://djmbbl0xn20hd"
-path.s3tc="res://.godot/imported/swat_6.png-0afbf6f604b6eea9bc959fc9ba04aa85.s3tc.ctex"
+uid="uid://cby3oixfdy5ob"
+path="res://.godot/imported/swat_swat_1k_7.jpg-cd5677c7e87dfdf66fe3c2c7e339c903.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
-"vram_texture": true
+"vram_texture": false
 }
 generator_parameters={
-"md5": "bfb632e72aad396abb84e1fc7957f0f8"
+"md5": "82cb2513d02230f5c412bb0920aebbd6"
 }
 
 [deps]
 
-source_file="res://assets/characters/swat_6.png"
-dest_files=["res://.godot/imported/swat_6.png-0afbf6f604b6eea9bc959fc9ba04aa85.s3tc.ctex"]
+source_file="res://assets/characters/swat_swat_1k_7.jpg"
+dest_files=["res://.godot/imported/swat_swat_1k_7.jpg-cd5677c7e87dfdf66fe3c2c7e339c903.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
-compress/normal_map=1
+compress/normal_map=0
 compress/channel_pack=0
 mipmaps/generate=true
 mipmaps/limit=-1
-roughness/mode=1
-roughness/src_normal="res://assets/characters/swat_6.png"
+roughness/mode=0
+roughness/src_normal=""
 process/channel_remap/red=0
 process/channel_remap/green=1
 process/channel_remap/blue=2
@@ -41,4 +40,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1

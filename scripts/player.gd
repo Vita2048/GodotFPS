@@ -239,6 +239,7 @@ func _try_shoot() -> void:
 		return
 	if not _weapon.try_fire():
 		return
+	Enemy.broadcast_gunshot(self, global_position, 24.0)
 	shoot_ray.force_raycast_update()
 	if shoot_ray.is_colliding():
 		var collider := shoot_ray.get_collider()

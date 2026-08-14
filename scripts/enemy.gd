@@ -22,6 +22,9 @@ var _attack_cd: float = 0.0
 var _current_anim: String = ""
 var _aware: bool = false
 var _rng := RandomNumberGenerator.new()
+var _patrol_target := Vector3.ZERO
+var _patrol_wait: float = 0.0
+var _has_patrol_target: bool = false
 ## Surface materials we set in _prepare_meshes (restored after hurt flash / on death)
 var _surface_mats: Array = [] # Array of { "mi": MeshInstance3D, "surface": int, "mat": Material }
 
@@ -94,7 +97,8 @@ func _setup_body() -> void:
 		shape.radius = 0.4
 		shape.height = 1.6
 		col.shape = shape
-		col.position.y = 1.0
+		# Center at height/2 so the capsule sits on the origin (feet on the floor).
+		col.position.y = 0.8
 		add_child(col)
 
 
@@ -398,7 +402,8 @@ func _fit_character_scale(model: Node3D) -> void:
 		model.scale = Vector3.ONE
 	else:
 		model.scale = Vector3.ONE * 0.01
-	model.position = Vector3.ZERO
+	# Mixamo soles sit slightly under y=0 — lift so boots aren't buried.
+	model.position = Vector3(0.0, 0.05, 0.0)
 
 
 func _hips_rest_origin(skeleton: Skeleton3D) -> Vector3:
@@ -498,7 +503,12 @@ func _import_external_anims() -> void:
 			else:
 				copied.loop_mode = Animation.LOOP_LINEAR
 			_retarget_mixamo_tracks(copied, skeleton)
-			_strip_root_motion(copied)
+			# Keep hip Y on death so the body actually drops to the floor.
+			# Locomotion stays in-place (root XZ/Y stripped).
+			if key == "die":
+				_keep_death_hip_drop(copied)
+			else:
+				_strip_root_motion(copied)
 			# Mixamo clips are authored in centimeters. Meter-scale FBX skeletons
 			# need position keys scaled down or the mesh explodes and gets culled.
 			if _skeleton_is_meters(skeleton):
@@ -583,6 +593,21 @@ func _strip_root_motion(anim: Animation) -> void:
 			anim.remove_track(i)
 
 
+func _keep_death_hip_drop(anim: Animation) -> void:
+	## Death needs the hips to fall. Zero out XZ (no slide) but keep Y keys.
+	for i in range(anim.get_track_count() - 1, -1, -1):
+		if anim.track_get_type(i) != Animation.TYPE_POSITION_3D:
+			continue
+		var path := String(anim.track_get_path(i)).to_lower()
+		if not ("hips" in path or path.ends_with(":root") or "/root" in path):
+			continue
+		for k in anim.track_get_key_count(i):
+			var v: Variant = anim.track_get_key_value(i, k)
+			if v is Vector3:
+				var p := v as Vector3
+				anim.track_set_key_value(i, k, Vector3(0.0, p.y, 0.0))
+
+
 func _resolve_anim_names() -> void:
 	var all := _anim.get_animation_list() if _anim else PackedStringArray()
 	anim_walk = _pick_anim(all, ["walk"])
@@ -628,7 +653,9 @@ func _pick_anim(all: PackedStringArray, keywords: Array) -> String:
 func _play(anim_name: String, speed: float = 1.0) -> void:
 	if _anim == null or anim_name == "":
 		return
+	_anim.speed_scale = 1.0
 	if anim_name == _current_anim and _anim.is_playing():
+		_anim.speed_scale = speed
 		return
 	if not _anim.has_animation(anim_name):
 		return
@@ -664,10 +691,7 @@ func _physics_process(delta: float) -> void:
 		_aware = true
 
 	if not _aware:
-		state = State.IDLE
-		velocity = Vector3.ZERO
-		_play(anim_idle if anim_idle != "" else anim_walk, 0.4)
-		move_and_slide()
+		_patrol(delta)
 		return
 
 	# Face player (Mixamo faces +Z; look_at aims -Z → flip 180°)
@@ -718,6 +742,79 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 
+func _patrol(delta: float) -> void:
+	state = State.IDLE
+	_patrol_wait = maxf(0.0, _patrol_wait - delta)
+	if _patrol_wait > 0.0:
+		velocity = Vector3.ZERO
+		if not is_on_floor():
+			velocity.y -= ProjectSettings.get_setting("physics/3d/default_gravity") * delta
+		move_and_slide()
+		# No real idle clip — pause so they don't moonwalk in place
+		if _anim != null and _anim.is_playing() and anim_idle == anim_walk:
+			_anim.speed_scale = 0.0
+		return
+
+	if not _has_patrol_target or global_position.distance_to(_patrol_target) < 0.7:
+		_pick_patrol_target()
+		if _rng.randf() < 0.35:
+			_patrol_wait = _rng.randf_range(0.8, 2.2)
+			_has_patrol_target = false
+			velocity = Vector3.ZERO
+			move_and_slide()
+			return
+
+	var to := _patrol_target - global_position
+	to.y = 0.0
+	if to.length_squared() < 0.04:
+		_has_patrol_target = false
+		velocity = Vector3.ZERO
+		move_and_slide()
+		return
+
+	var dir := to.normalized()
+	velocity = dir * walk_speed
+	if not is_on_floor():
+		velocity.y -= ProjectSettings.get_setting("physics/3d/default_gravity") * delta
+	else:
+		velocity.y = 0.0
+
+	if to.length_squared() > 0.001:
+		look_at(global_position + dir, Vector3.UP)
+		rotate_y(PI)
+
+	_play(anim_walk if anim_walk != "" else anim_idle, 1.0)
+	if _anim != null:
+		_anim.speed_scale = 1.0
+	var before := global_position
+	move_and_slide()
+	# Stuck against a wall — pick a new heading
+	var moved := Vector3(global_position.x - before.x, 0.0, global_position.z - before.z)
+	if moved.length() < walk_speed * delta * 0.15:
+		_has_patrol_target = false
+
+
+func _pick_patrol_target() -> void:
+	var angle := _rng.randf() * TAU
+	var dist := _rng.randf_range(3.0, 10.0)
+	var dest := global_position + Vector3(cos(angle), 0.0, sin(angle)) * dist
+	dest.y = global_position.y
+	# Prefer destinations that don't immediately hit a wall
+	var space := get_world_3d().direct_space_state
+	var from := global_position + Vector3(0, 0.8, 0)
+	var to := dest + Vector3(0, 0.8, 0)
+	var q := PhysicsRayQueryParameters3D.create(from, to)
+	q.collision_mask = 1
+	q.exclude = [self]
+	var hit := space.intersect_ray(q)
+	if not hit.is_empty():
+		var p: Vector3 = hit.position
+		var back := (from - to).normalized() * 0.8
+		dest = Vector3(p.x + back.x, global_position.y, p.z + back.z)
+	_patrol_target = dest
+	_has_patrol_target = true
+
+
 func _has_line_of_sight() -> bool:
 	if _player == null:
 		return false
@@ -765,6 +862,7 @@ func _deal_damage_to_player() -> void:
 	add_child(flash)
 	get_tree().create_timer(0.06).timeout.connect(flash.queue_free)
 	SFX.play_3d(get_parent(), "shoot", global_position + Vector3(0, 1.3, 0), -10.0)
+	broadcast_gunshot(self, global_position, 24.0)
 
 
 func take_damage(amount: int, hit_pos: Vector3 = Vector3.ZERO) -> void:
@@ -887,6 +985,21 @@ func _restore_materials() -> void:
 		mi.set_surface_override_material(s, mat)
 
 
+func hear_gunshot(at: Vector3, radius: float = 24.0) -> void:
+	if state == State.DEAD:
+		return
+	if global_position.distance_to(at) <= radius:
+		_aware = true
+
+
+static func broadcast_gunshot(from: Node, at: Vector3, radius: float = 24.0) -> void:
+	if from == null or not from.is_inside_tree():
+		return
+	for n in from.get_tree().get_nodes_in_group("enemy"):
+		if n != from and n.has_method("hear_gunshot"):
+			n.hear_gunshot(at, radius)
+
+
 func _die() -> void:
 	state = State.DEAD
 	velocity = Vector3.ZERO
@@ -897,10 +1010,42 @@ func _die() -> void:
 	GameState.unregister_enemy()
 	_play(anim_die if anim_die != "" else "")
 	SFX.play_3d(get_parent(), "hit", global_position, -6.0)
+	if _anim and not _anim.animation_finished.is_connected(_on_death_anim_finished):
+		_anim.animation_finished.connect(_on_death_anim_finished)
 	var delay := 2.8
 	if _anim and anim_die != "" and _anim.has_animation(anim_die):
-		delay = maxf(2.0, _anim.get_animation(anim_die).length + 0.3)
-	get_tree().create_timer(delay).timeout.connect(queue_free)
+		delay = _anim.get_animation(anim_die).length + 0.05
+	get_tree().create_timer(delay).timeout.connect(_settle_corpse)
+
+
+func _on_death_anim_finished(anim_name: StringName) -> void:
+	if state != State.DEAD:
+		return
+	if anim_die != "" and String(anim_name) != anim_die and not String(anim_name).contains("die"):
+		return
+	_settle_corpse()
+
+
+func _settle_corpse() -> void:
+	if not is_instance_valid(self) or state != State.DEAD:
+		return
+	if _anim:
+		if anim_die != "" and _anim.has_animation(anim_die):
+			_anim.play(anim_die)
+			_anim.seek(_anim.get_animation(anim_die).length, true)
+		_anim.pause()
+	# Pin the posed skeleton to the floor so the body isn't hovering.
+	var skeleton := _find_skeleton(_model_root)
+	if skeleton == null:
+		return
+	var min_y := INF
+	for i in skeleton.get_bone_count():
+		var local := skeleton.get_bone_global_pose(i).origin
+		var world := skeleton.global_transform * local
+		if world.y < min_y:
+			min_y = world.y
+	if min_y < INF:
+		_model_root.global_position.y += 0.02 - min_y
 
 
 func _set_layers(node: Node, layer: int) -> void:

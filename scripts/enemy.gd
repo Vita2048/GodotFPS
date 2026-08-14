@@ -25,6 +25,10 @@ var _rng := RandomNumberGenerator.new()
 var _patrol_target := Vector3.ZERO
 var _patrol_wait: float = 0.0
 var _has_patrol_target: bool = false
+var _death_base_model_y: float = 0.0
+var _death_drop: float = 0.0
+var _death_len: float = 1.0
+var _corpse_settled: bool = false
 ## Surface materials we set in _prepare_meshes (restored after hurt flash / on death)
 var _surface_mats: Array = [] # Array of { "mi": MeshInstance3D, "surface": int, "mat": Material }
 
@@ -509,10 +513,13 @@ func _import_external_anims() -> void:
 				_keep_death_hip_drop(copied)
 			else:
 				_strip_root_motion(copied)
-			# Mixamo clips are authored in centimeters. Meter-scale FBX skeletons
-			# need position keys scaled down or the mesh explodes and gets culled.
-			if _skeleton_is_meters(skeleton):
+			# Only convert cm Mixamo keys onto a meter-scale body. Dying.glb (and
+			# some FBX) already import in meters — scaling those by 0.01 plants
+			# standing hips at ~1cm and the torso sinks to the waist.
+			if _skeleton_is_meters(skeleton) and _clip_positions_are_cm(copied):
 				_scale_position_tracks(copied, 0.01)
+			if key == "die":
+				_rebias_death_hips(copied, skeleton)
 			var safe_name := "%s__%s" % [key, String(anim_name).get_file().replace("|", "_").replace(" ", "_")]
 			if target_lib.has_animation(safe_name):
 				target_lib.remove_animation(safe_name)
@@ -593,6 +600,17 @@ func _strip_root_motion(anim: Animation) -> void:
 			anim.remove_track(i)
 
 
+func _clip_positions_are_cm(anim: Animation) -> bool:
+	for i in anim.get_track_count():
+		if anim.track_get_type(i) != Animation.TYPE_POSITION_3D:
+			continue
+		for k in anim.track_get_key_count(i):
+			var v: Variant = anim.track_get_key_value(i, k)
+			if v is Vector3 and (v as Vector3).length() > 20.0:
+				return true
+	return false
+
+
 func _keep_death_hip_drop(anim: Animation) -> void:
 	## Death needs the hips to fall. Zero out XZ (no slide) but keep Y keys.
 	for i in range(anim.get_track_count() - 1, -1, -1):
@@ -606,6 +624,34 @@ func _keep_death_hip_drop(anim: Animation) -> void:
 			if v is Vector3:
 				var p := v as Vector3
 				anim.track_set_key_value(i, k, Vector3(0.0, p.y, 0.0))
+
+
+func _rebias_death_hips(anim: Animation, skeleton: Skeleton3D) -> void:
+	## Make frame 0 match the standing rest hip height; keep the clip's Y drop.
+	if skeleton == null:
+		return
+	var rest_y := _hips_rest_origin(skeleton).y
+	if absf(rest_y) < 0.001:
+		return
+	for i in anim.get_track_count():
+		if anim.track_get_type(i) != Animation.TYPE_POSITION_3D:
+			continue
+		var path := String(anim.track_get_path(i)).to_lower()
+		if not ("hips" in path or path.ends_with(":root") or "/root" in path):
+			continue
+		if anim.track_get_key_count(i) == 0:
+			continue
+		var first: Variant = anim.track_get_key_value(i, 0)
+		if not (first is Vector3):
+			continue
+		var delta := rest_y - (first as Vector3).y
+		if is_zero_approx(delta):
+			continue
+		for k in anim.track_get_key_count(i):
+			var v: Variant = anim.track_get_key_value(i, k)
+			if v is Vector3:
+				var p := v as Vector3
+				anim.track_set_key_value(i, k, Vector3(p.x, p.y + delta, p.z))
 
 
 func _resolve_anim_names() -> void:
@@ -665,6 +711,7 @@ func _play(anim_name: String, speed: float = 1.0) -> void:
 
 func _physics_process(delta: float) -> void:
 	if state == State.DEAD:
+		_update_death_drop()
 		return
 	# Freeze combat while pause / menus are up
 	if GameState == null or GameState.paused or not GameState.game_started or GameState.player_dead:
@@ -1008,6 +1055,7 @@ func _die() -> void:
 	_restore_materials() # keep original textures during death animation
 	GameState.add_score(100)
 	GameState.unregister_enemy()
+	_prepare_death_drop()
 	_play(anim_die if anim_die != "" else "")
 	SFX.play_3d(get_parent(), "hit", global_position, -6.0)
 	if _anim and not _anim.animation_finished.is_connected(_on_death_anim_finished):
@@ -1016,6 +1064,53 @@ func _die() -> void:
 	if _anim and anim_die != "" and _anim.has_animation(anim_die):
 		delay = _anim.get_animation(anim_die).length + 0.05
 	get_tree().create_timer(delay).timeout.connect(_settle_corpse)
+
+
+func _prepare_death_drop() -> void:
+	## Sample this skeleton's last death pose and see how far it still is from
+	## the floor. That offset is eased in during playback so every mesh lands,
+	## regardless of Mixamo units or rest-pose hip height.
+	_death_drop = 0.0
+	_corpse_settled = false
+	if _model_root == null:
+		return
+	_death_base_model_y = _model_root.position.y
+	if _anim == null or anim_die == "" or not _anim.has_animation(anim_die):
+		return
+	var clip := _anim.get_animation(anim_die)
+	_death_len = maxf(clip.length, 0.01)
+	_anim.play(anim_die)
+	_anim.seek(_death_len, true)
+	var end_min := _lowest_bone_world_y()
+	_anim.seek(0.0, true)
+	if end_min < INF:
+		_death_drop = 0.02 - end_min
+
+
+func _update_death_drop() -> void:
+	if _corpse_settled or _model_root == null:
+		return
+	var t := 1.0
+	if _anim and _death_len > 0.0:
+		t = clampf(_anim.current_animation_position / _death_len, 0.0, 1.0)
+	var w := t * t * (3.0 - 2.0 * t)
+	_model_root.position.y = _death_base_model_y + _death_drop * w
+	if t >= 0.999:
+		_settle_corpse()
+
+
+func _lowest_bone_world_y() -> float:
+	var skeleton := _find_skeleton(_model_root)
+	if skeleton == null:
+		return INF
+	skeleton.force_update_all_bone_transforms()
+	var min_y := INF
+	for i in skeleton.get_bone_count():
+		var local := skeleton.get_bone_global_pose(i).origin
+		var world := skeleton.global_transform * local
+		if world.y < min_y:
+			min_y = world.y
+	return min_y
 
 
 func _on_death_anim_finished(anim_name: StringName) -> void:
@@ -1034,18 +1129,10 @@ func _settle_corpse() -> void:
 			_anim.play(anim_die)
 			_anim.seek(_anim.get_animation(anim_die).length, true)
 		_anim.pause()
-	# Pin the posed skeleton to the floor so the body isn't hovering.
-	var skeleton := _find_skeleton(_model_root)
-	if skeleton == null:
-		return
-	var min_y := INF
-	for i in skeleton.get_bone_count():
-		var local := skeleton.get_bone_global_pose(i).origin
-		var world := skeleton.global_transform * local
-		if world.y < min_y:
-			min_y = world.y
+	var min_y := _lowest_bone_world_y()
 	if min_y < INF:
 		_model_root.global_position.y += 0.02 - min_y
+	_corpse_settled = true
 
 
 func _set_layers(node: Node, layer: int) -> void:

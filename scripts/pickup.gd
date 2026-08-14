@@ -34,7 +34,7 @@ func _ready() -> void:
 	# Soft glow (no realtime light on low — emissive material is enough)
 	if QualitySettings == null or QualitySettings.level != QualitySettings.Quality.LOW:
 		var light := OmniLight3D.new()
-		light.light_color = Color(1.0, 0.2, 0.2) if pickup_type == "health" else Color(1.0, 0.85, 0.2)
+		light.light_color = Color(1.0, 0.85, 0.85) if pickup_type == "health" else Color(1.0, 0.85, 0.2)
 		light.light_energy = 0.45
 		light.omni_range = 2.0
 		light.shadow_enabled = false
@@ -42,67 +42,43 @@ func _ready() -> void:
 		add_child(light)
 
 
-func _medkit_texture() -> ImageTexture:
-	var size := 256
-	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0.97, 0.97, 0.99, 1.0))
-	var red := Color(0.86, 0.04, 0.07, 1.0)
-	var arm := 34
-	var half := size / 2
-	for y in size:
-		for x in size:
-			var dx := absi(x - half)
-			var dy := absi(y - half)
-			if (dx <= arm and dy <= 92) or (dy <= arm and dx <= 92):
-				img.set_pixel(x, y, red)
-	var tex := ImageTexture.create_from_image(img)
-	return tex
-
-
 func _build_medkit(root: Node3D) -> void:
-	var tex := _medkit_texture()
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(1, 1, 1)
-	mat.albedo_texture = tex
-	mat.metallic = 0.0
-	mat.roughness = 0.45
-	mat.emission_enabled = true
-	mat.emission = Color(1, 1, 1)
-	mat.emission_texture = tex
-	mat.emission_energy_multiplier = 0.55
-	mat.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
-	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat.uv1_scale = Vector3(1, 1, 1)
+	## Solid white pack + a crisp 3D red cross. No textured cube (bilinear
+	## filtering was bleeding red across the white faces).
+	var white := StandardMaterial3D.new()
+	white.albedo_color = Color(0.96, 0.97, 0.98)
+	white.metallic = 0.0
+	white.roughness = 0.55
+	white.emission_enabled = false
 
-	# Cube so every spinning face shows the white pack + red cross
+	var red := StandardMaterial3D.new()
+	red.albedo_color = Color(0.80, 0.02, 0.05)
+	red.metallic = 0.0
+	red.roughness = 0.4
+	red.emission_enabled = false
+
 	var body := MeshInstance3D.new()
 	var box := BoxMesh.new()
-	box.size = Vector3(0.46, 0.46, 0.46)
+	box.size = Vector3(0.40, 0.40, 0.14)
 	body.mesh = box
-	body.material_override = mat
+	body.material_override = white
 	root.add_child(body)
 
-	# Extra 3D cross standing off the +Z face (readable up close)
-	var red_mat := StandardMaterial3D.new()
-	red_mat.albedo_color = Color(0.86, 0.04, 0.07)
-	red_mat.emission_enabled = true
-	red_mat.emission = Color(1.0, 0.1, 0.1)
-	red_mat.emission_energy_multiplier = 1.4
-	var bar_h := MeshInstance3D.new()
-	var hbox := BoxMesh.new()
-	hbox.size = Vector3(0.32, 0.1, 0.04)
-	bar_h.mesh = hbox
-	bar_h.position = Vector3(0, 0, 0.25)
-	bar_h.material_override = red_mat
-	root.add_child(bar_h)
-	var bar_v := MeshInstance3D.new()
-	var vbox := BoxMesh.new()
-	vbox.size = Vector3(0.1, 0.32, 0.04)
-	bar_v.mesh = vbox
-	bar_v.position = Vector3(0, 0, 0.25)
-	bar_v.material_override = red_mat
-	root.add_child(bar_v)
+	for face_z in [0.085, -0.085]:
+		var bar_h := MeshInstance3D.new()
+		var hbox := BoxMesh.new()
+		hbox.size = Vector3(0.26, 0.08, 0.025)
+		bar_h.mesh = hbox
+		bar_h.position = Vector3(0, 0, face_z)
+		bar_h.material_override = red
+		root.add_child(bar_h)
+		var bar_v := MeshInstance3D.new()
+		var vbox := BoxMesh.new()
+		vbox.size = Vector3(0.08, 0.26, 0.025)
+		bar_v.mesh = vbox
+		bar_v.position = Vector3(0, 0, face_z)
+		bar_v.material_override = red
+		root.add_child(bar_v)
 
 
 func _build_ammo_crate(root: Node3D) -> void:

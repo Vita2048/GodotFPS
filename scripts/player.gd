@@ -28,8 +28,11 @@ func _ready() -> void:
 	add_to_group("player")
 	collision_layer = 2
 	collision_mask = 1
-	floor_snap_length = 0.55
-	floor_max_angle = deg_to_rad(55.0)
+	floor_snap_length = 0.6
+	floor_max_angle = deg_to_rad(62.0)
+	floor_stop_on_slope = false
+	floor_constant_speed = true
+	floor_block_on_wall = false
 	if not InputMap.has_action("jump"):
 		InputMap.add_action("jump")
 		var ev := InputEventKey.new()
@@ -216,6 +219,8 @@ func _physics_process(delta: float) -> void:
 		velocity.y = 0.0
 
 	move_and_slide()
+	if direction != Vector3.ZERO:
+		_try_step_up(direction)
 
 	if _weapon and is_instance_valid(_weapon):
 		var bob_y := sin(_bob_t) * bob_amount if direction != Vector3.ZERO else 0.0
@@ -271,6 +276,21 @@ func _spawn_impact(pos: Vector3, normal: Vector3) -> void:
 	var tw := create_tween()
 	tw.tween_property(mat, "emission_energy_multiplier", 0.0, 0.2)
 	tw.tween_callback(decal.queue_free).set_delay(2.5)
+
+
+func _try_step_up(dir: Vector3) -> void:
+	## Lift over short risers if the ramp is missed. Capsules cannot stair-step.
+	if not is_on_wall():
+		return
+	var forward := Vector3(dir.x, 0.0, dir.z).normalized() * 0.28
+	if not test_move(global_transform, forward):
+		return
+	var lift := 0.42
+	var raised := global_transform.translated(Vector3(0, lift, 0))
+	if test_move(raised, forward):
+		return
+	global_position.y += lift
+	global_position += forward * 0.12
 
 
 func _try_interact() -> void:

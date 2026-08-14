@@ -804,11 +804,18 @@ func _add_mountains() -> void:
 		root.add_child(cap)
 
 
+func _cell_room_index(x: int, z: int) -> int:
+	for i in rooms.size():
+		if (rooms[i] as Rect2i).has_point(Vector2i(x, z)):
+			return i
+	return -1
+
+
 func _place_room_doors() -> void:
-	## Seal every room opening with a blast door. 2-wide corridors never
-	## match the old "walls on both sides" test, so doors never spawned.
+	## One doorway per opening that actually enters a room. Hallways stay open.
 	for ri in rooms.size():
 		var room: Rect2i = rooms[ri]
+		var openings: Array[Vector2i] = []
 		for z in range(room.position.y, room.position.y + room.size.y):
 			for x in range(room.position.x, room.position.x + room.size.x):
 				if grid[z][x] != TILE_EMPTY:
@@ -821,45 +828,84 @@ func _place_room_doors() -> void:
 				)
 				if not on_edge:
 					continue
-				for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-					var nx: int = x + d.x
-					var nz: int = z + d.y
-					if nx < 0 or nz < 0 or nx >= map_width or nz >= map_height:
-						continue
-					if room.has_point(Vector2i(nx, nz)):
-						continue
-					if _walkable_tile(grid[nz][nx]):
-						grid[z][x] = TILE_DOOR
-						# Also seal the corridor cell so 2-wide halls don't leave a gap
-						if grid[nz][nx] == TILE_EMPTY:
-							grid[nz][nx] = TILE_DOOR
+				if _is_room_exit(room, x, z):
+					openings.append(Vector2i(x, z))
+		var clusters := _cluster_cells(openings)
+		for cluster in clusters:
+			var cells: Array = cluster
+			# A real doorway is 1–3 cells. Wider shared edges get walled down to 2.
+			cells.sort_custom(func(a, b): return a.x < b.x or (a.x == b.x and a.y < b.y))
+			var keep := mini(2, cells.size())
+			var mid := cells.size() / 2
+			var start_i := clampi(mid - keep / 2, 0, cells.size() - keep)
+			for i in cells.size():
+				var c: Vector2i = cells[i]
+				if i >= start_i and i < start_i + keep:
+					grid[c.y][c.x] = TILE_DOOR
+				else:
+					grid[c.y][c.x] = TILE_WALL
+
+
+func _is_room_exit(room: Rect2i, x: int, z: int) -> bool:
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var nx: int = x + d.x
+		var nz: int = z + d.y
+		if nx < 0 or nz < 0 or nx >= map_width or nz >= map_height:
+			continue
+		if room.has_point(Vector2i(nx, nz)):
+			continue
+		if not _walkable_tile(grid[nz][nx]):
+			continue
+		# Neighbour is a corridor or a different room — this is a real entrance.
+		return true
+	return false
+
+
+func _cluster_cells(cells: Array[Vector2i]) -> Array:
+	var remaining: Array[Vector2i] = cells.duplicate()
+	var clusters: Array = []
+	while not remaining.is_empty():
+		var seed: Vector2i = remaining.pop_back()
+		var cluster: Array[Vector2i] = [seed]
+		var grew := true
+		while grew:
+			grew = false
+			for i in range(remaining.size() - 1, -1, -1):
+				var c: Vector2i = remaining[i]
+				for s in cluster:
+					if absi(c.x - s.x) + absi(c.y - s.y) == 1:
+						cluster.append(c)
+						remaining.remove_at(i)
+						grew = true
 						break
+		clusters.append(cluster)
+	return clusters
 
 
 func _carve_upper_floors() -> void:
-	## Full second storey in several rooms (not a 0.9m ramp platform).
+	## Always build a second storey in the first large rooms so stairs are findable.
 	var lofted := 0
 	for ri in rooms.size():
 		var room: Rect2i = rooms[ri]
-		if ri == 0:
-			continue
-		if room.size.x < 7 or room.size.y < 7:
+		if room.size.x < 6 or room.size.y < 6:
 			continue
 		if lofted >= 4:
 			break
-		if lofted > 0 and _rng.randf() > 0.55:
-			continue
-		# Interior becomes floor 2. Leave a 3-cell stair run from the south door edge.
-		var stair_dir := Vector2i(0, 1)
-		var sx := room.position.x + room.size.x / 2
+		# Stair run: 2 wide × 4 long along the west interior, climbing +Z.
+		var sx := room.position.x + 1
 		var sz := room.position.y + 1
-		for i in 3:
-			var cx := sx
+		var run := mini(4, room.size.y - 3)
+		if run < 3:
+			continue
+		for i in run:
 			var cz := sz + i
-			if cz < room.position.y + room.size.y - 1 and grid[cz][cx] != TILE_WALL:
-				grid[cz][cx] = TILE_STAIR
-			if cx + 1 < room.position.x + room.size.x and grid[cz][cx + 1] != TILE_WALL:
-				grid[cz][cx + 1] = TILE_STAIR
+			if cz >= room.position.y + room.size.y - 1:
+				break
+			if grid[cz][sx] != TILE_WALL and grid[cz][sx] != TILE_DOOR:
+				grid[cz][sx] = TILE_STAIR
+			if sx + 1 < room.position.x + room.size.x - 1 and grid[cz][sx + 1] != TILE_WALL and grid[cz][sx + 1] != TILE_DOOR:
+				grid[cz][sx + 1] = TILE_STAIR
+		# Upper floor covers the rest of the interior (not the stair strip)
 		for z in range(room.position.y + 1, room.position.y + room.size.y - 1):
 			for x in range(room.position.x + 1, room.position.x + room.size.x - 1):
 				if grid[z][x] == TILE_EMPTY:
@@ -868,86 +914,88 @@ func _carve_upper_floors() -> void:
 
 
 func _add_stairs(parent: Node3D, origin: Vector3, x: int, z: int) -> void:
-	# Only the first stair cell builds the full flight (3 cells → storey height).
+	# Climb +Z along the carved strip. Only the lowest cell builds the flight.
 	var dir_i := Vector2i(0, 1)
-	if z + 1 < map_height and (grid[z + 1][x] == TILE_FLOOR2 or grid[z + 1][x] == TILE_STAIR):
+	if z + 1 < map_height and grid[z + 1][x] == TILE_STAIR:
 		dir_i = Vector2i(0, 1)
-	elif z - 1 >= 0 and (grid[z - 1][x] == TILE_FLOOR2 or grid[z - 1][x] == TILE_STAIR):
+	elif z - 1 >= 0 and grid[z - 1][x] == TILE_STAIR:
 		dir_i = Vector2i(0, -1)
-	elif x + 1 < map_width and (grid[z][x + 1] == TILE_FLOOR2 or grid[z][x + 1] == TILE_STAIR):
+	elif x + 1 < map_width and grid[z][x + 1] == TILE_STAIR:
 		dir_i = Vector2i(1, 0)
-	elif x - 1 >= 0 and (grid[z][x - 1] == TILE_FLOOR2 or grid[z][x - 1] == TILE_STAIR):
+	elif x - 1 >= 0 and grid[z][x - 1] == TILE_STAIR:
 		dir_i = Vector2i(-1, 0)
 	var back := Vector2i(-dir_i.x, -dir_i.y)
 	var bx := x + back.x
 	var bz := z + back.y
 	if bx >= 0 and bz >= 0 and bx < map_width and bz < map_height and grid[bz][bx] == TILE_STAIR:
 		return
+	# One flight per stairwell (skip the twin cell of a 2-wide run)
+	var side_a := Vector2i(-dir_i.y, dir_i.x)
+	var sx := x + side_a.x
+	var sz := z + side_a.y
+	if sx >= 0 and sz >= 0 and sx < map_width and sz < map_height and grid[sz][sx] == TILE_STAIR:
+		if sx + sz < x + z:
+			return
 
 	var run_cells := 1
 	var cx := x + dir_i.x
 	var cz := z + dir_i.y
-	while cx >= 0 and cz >= 0 and cx < map_width and cz < map_height and grid[cz][cx] == TILE_STAIR and run_cells < 6:
+	while cx >= 0 and cz >= 0 and cx < map_width and cz < map_height and grid[cz][cx] == TILE_STAIR and run_cells < 8:
 		run_cells += 1
 		cx += dir_i.x
 		cz += dir_i.y
 
-	var dir := Vector3(dir_i.x, 0, dir_i.y)
+	var dir := Vector3(float(dir_i.x), 0.0, float(dir_i.y))
 	var length := float(run_cells) * CELL
-	var thick := 0.18
-	var hyp := sqrt(length * length + FLOOR2_Y * FLOOR2_Y)
-	var ang := atan(FLOOR2_Y / length)
-	var mid := origin + dir * (length * 0.5 - CELL * 0.5) + Vector3(0, FLOOR2_Y * 0.5, 0)
+	var width := CELL * 1.85
+	# Ramp from the near edge of the first cell up to the far edge of the last.
+	var bottom := origin - dir * (CELL * 0.45) + Vector3(0, 0.04, 0)
+	var top := origin + dir * (length - CELL * 0.45) + Vector3(0, FLOOR2_Y + 0.02, 0)
+	var along := top - bottom
+	var hyp := along.length()
+	var slope_dir := along / hyp
+	var right := Vector3.UP.cross(slope_dir)
+	if right.length_squared() < 0.001:
+		right = Vector3.RIGHT
+	right = right.normalized()
+	var normal := slope_dir.cross(right).normalized()
+	if normal.y < 0.0:
+		normal = -normal
+		right = -right
 
 	var ramp := StaticBody3D.new()
-	ramp.position = mid
-	if absf(dir.x) > 0.5:
-		ramp.rotation.z = ang * (-1.0 if dir.x > 0.0 else 1.0)
-	else:
-		ramp.rotation.x = ang * (1.0 if dir.z > 0.0 else -1.0)
+	ramp.name = "StairRamp"
+	ramp.transform = Transform3D(Basis(right, normal, slope_dir).orthonormalized(), (bottom + top) * 0.5)
 	var col := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
-	if absf(dir.x) > 0.5:
-		shape.size = Vector3(hyp, thick, CELL * 1.7)
-	else:
-		shape.size = Vector3(CELL * 1.7, thick, hyp)
+	shape.size = Vector3(width, 0.22, hyp)
 	col.shape = shape
 	ramp.add_child(col)
 	ramp.collision_layer = 1
 	parent.add_child(ramp)
 
-	var steps := run_cells * 4
-	var rise := FLOOR2_Y / float(steps)
-	var run := length / float(steps)
+	# Visual treads only (no collision — the ramp is what you walk on)
+	var steps := run_cells * 5
 	for i in steps:
-		var t := float(i) + 0.5
-		var pos := origin + dir * ((t * run) - CELL * 0.5) + Vector3(0, rise * (i + 1) - rise * 0.5, 0)
+		var t := (float(i) + 0.5) / float(steps)
+		var pos := bottom.lerp(top, t) + normal * 0.06
 		var mi := MeshInstance3D.new()
 		var box := BoxMesh.new()
-		if absf(dir.x) > 0.5:
-			box.size = Vector3(run * 0.98, rise, CELL * 1.65)
-		else:
-			box.size = Vector3(CELL * 1.65, rise, run * 0.98)
+		box.size = Vector3(width * 0.95, 0.08, hyp / float(steps) * 0.9)
 		mi.mesh = box
-		mi.material_override = _mats["metal"]
-		mi.position = pos
+		mi.material_override = _mats["warning"] if i % 2 == 0 else _mats["metal"]
+		mi.transform = Transform3D(Basis(right, normal, slope_dir).orthonormalized(), pos)
 		parent.add_child(mi)
 
 	for side in [-1.0, 1.0]:
 		var rail := MeshInstance3D.new()
 		var rbox := BoxMesh.new()
-		if absf(dir.x) > 0.5:
-			rbox.size = Vector3(length, 0.08, 0.06)
-		else:
-			rbox.size = Vector3(0.06, 0.08, length)
+		rbox.size = Vector3(0.07, 0.07, hyp)
 		rail.mesh = rbox
 		rail.material_override = _mats["trim"]
-		var side_off := dir * (length * 0.5 - CELL * 0.5) + Vector3(0, FLOOR2_Y * 0.55, 0)
-		if absf(dir.x) > 0.5:
-			side_off.z = side * CELL * 0.85
-		else:
-			side_off.x = side * CELL * 0.85
-		rail.position = origin + side_off
+		var side_f := float(side)
+		var rail_pos: Vector3 = (bottom + top) * 0.5 + right * (side_f * width * 0.48) + normal * 0.55
+		rail.transform = Transform3D(Basis(right, normal, slope_dir).orthonormalized(), rail_pos)
 		parent.add_child(rail)
 
 

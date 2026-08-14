@@ -146,7 +146,7 @@ func _build_level() -> void:
 	for item in pick_pts:
 		var pk := Pickup.new()
 		pk.pickup_type = item["type"]
-		pk.position = item["pos"] + Vector3(0, 0.0, 0)
+		pk.position = item["pos"] + Vector3(0, 0.35, 0)
 		entities.add_child(pk)
 
 	await get_tree().process_frame

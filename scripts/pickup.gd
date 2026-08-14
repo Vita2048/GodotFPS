@@ -3,15 +3,17 @@ class_name Pickup
 
 @export var pickup_type: String = "ammo" # ammo | health
 @export var amount: int = 15
+@export var respawn_seconds: float = 22.0
 
 var _bob_t: float = 0.0
 var _mesh: MeshInstance3D
+var _respawning: bool = false
 
 func _ready() -> void:
-	collision_layer = 0
+	collision_layer = 8
 	collision_mask = 2 # player
 	monitoring = true
-	monitorable = false
+	monitorable = true
 	body_entered.connect(_on_body_entered)
 
 	var shape := CollisionShape3D.new()
@@ -139,8 +141,20 @@ func _process(delta: float) -> void:
 		_mesh.rotation.y += delta * 1.5
 
 
+func _physics_process(_delta: float) -> void:
+	if _respawning:
+		return
+	var player := get_tree().get_first_node_in_group("player") as Node3D
+	if player and global_position.distance_to(player.global_position) < 1.25:
+		_try_collect(player)
+
+
 func _on_body_entered(body: Node) -> void:
-	if not body.is_in_group("player"):
+	_try_collect(body)
+
+
+func _try_collect(body: Node) -> void:
+	if _respawning or body == null or not body.is_in_group("player"):
 		return
 	if pickup_type == "health":
 		if GameState.health >= GameState.max_health:
@@ -149,7 +163,41 @@ func _on_body_entered(body: Node) -> void:
 	else:
 		GameState.add_ammo(amount)
 	_play_pickup()
-	queue_free()
+	_flash_hud()
+	_begin_respawn()
+
+
+func _flash_hud() -> void:
+	var hud := get_tree().get_first_node_in_group("player")
+	if hud is Node:
+		var p := hud as Node
+		if p.get("hud") and p.hud.has_method("show_pickup"):
+			if pickup_type == "health":
+				p.hud.show_pickup("+%d HEALTH" % amount)
+			else:
+				p.hud.show_pickup("+%d AMMO" % amount)
+
+
+func _begin_respawn() -> void:
+	_respawning = true
+	monitoring = false
+	visible = false
+	if respawn_seconds <= 0.0:
+		queue_free()
+		return
+	var tree := get_tree()
+	if tree == null:
+		queue_free()
+		return
+	tree.create_timer(respawn_seconds).timeout.connect(_finish_respawn)
+
+
+func _finish_respawn() -> void:
+	if not is_instance_valid(self):
+		return
+	visible = true
+	monitoring = true
+	_respawning = false
 
 
 func _play_pickup() -> void:

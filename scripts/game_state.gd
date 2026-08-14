@@ -88,11 +88,11 @@ func enemy_attack_cooldown() -> float:
 func enemy_sight_range() -> float:
 	match difficulty:
 		Difficulty.EASY:
-			return 14.0
+			return 28.0
 		Difficulty.NORMAL:
-			return 17.0
+			return 36.0
 		_:
-			return 22.0
+			return 48.0
 
 
 func enemy_attack_range() -> float:

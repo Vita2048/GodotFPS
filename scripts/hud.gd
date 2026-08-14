@@ -82,6 +82,16 @@ func _on_ammo(mag: int, reserve: int) -> void:
 		ammo_label.text = "%d / %d" % [mag, reserve]
 
 
+func show_pickup(text: String) -> void:
+	if message_label == null:
+		return
+	message_label.text = text
+	message_label.modulate.a = 1.0
+	var tw := create_tween()
+	tw.tween_interval(1.1)
+	tw.tween_property(message_label, "modulate:a", 0.0, 0.4)
+
+
 func _on_score(v: int) -> void:
 	if score_label:
 		score_label.text = str(v)

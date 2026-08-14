@@ -29,6 +29,7 @@ var _death_base_model_y: float = 0.0
 var _death_drop: float = 0.0
 var _death_len: float = 1.0
 var _corpse_settled: bool = false
+var _los_time: float = 0.0
 ## Surface materials we set in _prepare_meshes (restored after hurt flash / on death)
 var _surface_mats: Array = [] # Array of { "mi": MeshInstance3D, "surface": int, "mat": Material }
 
@@ -78,6 +79,7 @@ func _ready() -> void:
 	_setup_body()
 	_load_visuals_and_anims()
 	call_deferred("_find_player")
+	call_deferred("_unstuck")
 
 
 func _apply_difficulty_stats() -> void:
@@ -98,12 +100,19 @@ func _setup_body() -> void:
 	if col == null:
 		col = CollisionShape3D.new()
 		var shape := CapsuleShape3D.new()
-		shape.radius = 0.4
+		shape.radius = 0.32
 		shape.height = 1.6
 		col.shape = shape
 		# Center at height/2 so the capsule sits on the origin (feet on the floor).
 		col.position.y = 0.8
 		add_child(col)
+	floor_snap_length = 0.55
+	floor_max_angle = deg_to_rad(60.0)
+	safe_margin = 0.08
+	max_slides = 6
+	floor_stop_on_slope = false
+	floor_constant_speed = true
+	floor_block_on_wall = false
 
 
 func _find_player() -> void:
@@ -733,9 +742,11 @@ func _physics_process(delta: float) -> void:
 	to_player.y = 0.0
 	var dist := to_player.length()
 	var can_see := dist < sight_range and _has_line_of_sight()
-
 	if can_see:
+		_los_time = minf(_los_time + delta, 1.0)
 		_aware = true
+	else:
+		_los_time = maxf(0.0, _los_time - delta * 2.0)
 
 	if not _aware:
 		_patrol(delta)
@@ -751,11 +762,11 @@ func _physics_process(delta: float) -> void:
 			look_at(global_position + flat, Vector3.UP)
 			rotate_y(PI)
 
-	if dist <= melee_range * 0.9:
+	if dist <= melee_range * 0.9 and can_see:
 		state = State.ATTACK
 		velocity = Vector3.ZERO
 		_try_attack()
-	elif dist <= attack_range and can_see:
+	elif dist <= attack_range and can_see and _los_time > 0.12:
 		# Strafe / cautious advance with pistol walk, shoot periodically
 		state = State.ATTACK
 		var dir := to_player.normalized()
@@ -782,21 +793,20 @@ func _physics_process(delta: float) -> void:
 		else:
 			_play(anim_walk, 1.0)
 
-	if not is_on_floor():
-		velocity.y -= ProjectSettings.get_setting("physics/3d/default_gravity") * delta
-	else:
-		velocity.y = 0.0
+	_apply_gravity(delta)
 	move_and_slide()
+	_stick_to_floor()
 
 
 func _patrol(delta: float) -> void:
 	state = State.IDLE
 	_patrol_wait = maxf(0.0, _patrol_wait - delta)
 	if _patrol_wait > 0.0:
-		velocity = Vector3.ZERO
-		if not is_on_floor():
-			velocity.y -= ProjectSettings.get_setting("physics/3d/default_gravity") * delta
+		velocity.x = 0.0
+		velocity.z = 0.0
+		_apply_gravity(delta)
 		move_and_slide()
+		_stick_to_floor()
 		# No real idle clip — pause so they don't moonwalk in place
 		if _anim != null and _anim.is_playing() and anim_idle == anim_walk:
 			_anim.speed_scale = 0.0
@@ -807,24 +817,27 @@ func _patrol(delta: float) -> void:
 		if _rng.randf() < 0.35:
 			_patrol_wait = _rng.randf_range(0.8, 2.2)
 			_has_patrol_target = false
-			velocity = Vector3.ZERO
+			velocity.x = 0.0
+			velocity.z = 0.0
+			_apply_gravity(delta)
 			move_and_slide()
+			_stick_to_floor()
 			return
 
 	var to := _patrol_target - global_position
 	to.y = 0.0
 	if to.length_squared() < 0.04:
 		_has_patrol_target = false
-		velocity = Vector3.ZERO
+		velocity.x = 0.0
+		velocity.z = 0.0
+		_apply_gravity(delta)
 		move_and_slide()
+		_stick_to_floor()
 		return
 
 	var dir := to.normalized()
 	velocity = dir * walk_speed
-	if not is_on_floor():
-		velocity.y -= ProjectSettings.get_setting("physics/3d/default_gravity") * delta
-	else:
-		velocity.y = 0.0
+	_apply_gravity(delta)
 
 	if to.length_squared() > 0.001:
 		look_at(global_position + dir, Vector3.UP)
@@ -836,6 +849,7 @@ func _patrol(delta: float) -> void:
 	var before := global_position
 	move_and_slide()
 	# Stuck against a wall — pick a new heading
+	_stick_to_floor()
 	var moved := Vector3(global_position.x - before.x, 0.0, global_position.z - before.z)
 	if moved.length() < walk_speed * delta * 0.15:
 		_has_patrol_target = false
@@ -862,17 +876,91 @@ func _pick_patrol_target() -> void:
 	_has_patrol_target = true
 
 
+func _apply_gravity(delta: float) -> void:
+	if is_on_floor():
+		velocity.y = 0.0
+	else:
+		velocity.y -= ProjectSettings.get_setting("physics/3d/default_gravity") * delta
+
+
+func _stick_to_floor() -> void:
+	## Drop from ceiling tops / step edges onto the real walkable floor.
+	if not is_inside_tree():
+		return
+	var space := get_world_3d().direct_space_state
+	var y: float = DoomLevel.find_walkable_y(space, global_position, global_position.y + 0.6, global_position.y - 8.0, [self])
+	if is_nan(y):
+		return
+	var dy := global_position.y - y
+	if dy > 0.06 and dy < 6.5:
+		global_position.y = y
+		velocity.y = 0.0
+	elif dy < -0.15 and dy > -0.9:
+		# Slightly in the floor (stair mesh) — lift to the tread.
+		global_position.y = y
+		velocity.y = 0.0
+
+
+func _unstuck() -> void:
+	if not is_inside_tree() or state == State.DEAD:
+		return
+	var col := get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if col == null or col.shape == null:
+		return
+	var space := get_world_3d().direct_space_state
+	var params := PhysicsShapeQueryParameters3D.new()
+	params.shape = col.shape
+	params.transform = col.global_transform
+	params.collision_mask = 1
+	params.exclude = [get_rid()]
+	var info := space.get_rest_info(params)
+	if info.is_empty():
+		return
+	var n: Vector3 = info.get("normal", Vector3.ZERO)
+	n.y = 0.0
+	if n.length_squared() < 0.0001:
+		n = Vector3(1, 0, 0)
+	else:
+		n = n.normalized()
+	global_position += n * 0.22
+
+
 func _has_line_of_sight() -> bool:
 	if _player == null:
 		return false
+	# Thick sweep so thin Doom walls actually block shots (zero-width rays slip through).
+	if not _clear_shot(Vector3(0, 1.35, 0), Vector3(0, 1.35, 0)):
+		return false
+	if not _clear_shot(Vector3(0, 1.05, 0), Vector3(0, 0.9, 0)):
+		return false
+	return true
+
+
+func _clear_shot(from_off: Vector3, to_off: Vector3) -> bool:
 	var space := get_world_3d().direct_space_state
-	var from := global_position + Vector3(0, 1.4, 0)
-	var to := _player.global_position + Vector3(0, 1.4, 0)
-	var q := PhysicsRayQueryParameters3D.create(from, to)
-	q.collision_mask = 1 # world only
-	q.exclude = [self]
-	var hit := space.intersect_ray(q)
-	return hit.is_empty()
+	var from := global_position + from_off
+	var to := _player.global_position + to_off
+	var motion := to - from
+	if motion.length_squared() < 0.01:
+		return true
+	var ball := SphereShape3D.new()
+	ball.radius = 0.12
+	var params := PhysicsShapeQueryParameters3D.new()
+	params.shape = ball
+	params.transform = Transform3D(Basis(), from)
+	params.motion = motion
+	params.collision_mask = 1
+	params.exclude = [get_rid(), _player.get_rid()]
+	var frac: PackedFloat32Array = space.cast_motion(params)
+	if frac.size() < 2:
+		# Fallback ray
+		var q := PhysicsRayQueryParameters3D.create(from, to)
+		q.collision_mask = 1
+		q.exclude = [self, _player]
+		q.hit_from_inside = true
+		return space.intersect_ray(q).is_empty()
+	# safe fraction of 1.0 means the sphere reached the player
+	return frac[0] > 0.96
 
 
 func _try_attack() -> void:

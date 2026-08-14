@@ -11,7 +11,11 @@ const MONSTER_TYPES := {
 	3001: true, 3002: true, 3003: true, 3004: true, 3005: true, 3006: true,
 }
 const HEALTH_TYPES := {2011: true, 2012: true, 2014: true, 83: true}
-const AMMO_TYPES := {8: true, 17: true, 2007: true, 2008: true, 2010: true, 2046: true, 2047: true, 2048: true}
+## Clips, shells, cells, rockets, backpacks, and weapons (give ammo).
+const AMMO_TYPES := {
+	8: true, 17: true, 2001: true, 2002: true, 2003: true, 2004: true, 2006: true,
+	2007: true, 2008: true, 2010: true, 2046: true, 2047: true, 2048: true, 2049: true,
+}
 
 var loader: Node
 var map_node: Node3D
@@ -96,9 +100,15 @@ func load_map(map_name: String) -> bool:
 		push_warning("[DoomLevel] createMap failed for %s" % map_name)
 		return false
 	map_node = created as Node3D
+	_fix_trigger_areas(map_node)
 	_extract_things(map_name)
 	_snap_spawns_to_floor()
-	print("[DoomLevel] loaded ", map_name, " spawn=", spawn_pos, " enemies=", enemy_spawns.size())
+	_ensure_ammo_pickups()
+	var ammo_n := 0
+	for item in pickup_spawns:
+		if item.get("type", "") == "ammo":
+			ammo_n += 1
+	print("[DoomLevel] loaded ", map_name, " spawn=", spawn_pos, " enemies=", enemy_spawns.size(), " ammo=", ammo_n)
 	return true
 
 
@@ -113,11 +123,21 @@ func _free_previous_maps() -> void:
 	map_node = null
 
 
+func _fix_trigger_areas(root: Node) -> void:
+	## Importer Area3Ds default to mask layer 1; our player also lives on layer 2.
+	if root == null:
+		return
+	for n in root.find_children("*", "Area3D", true, false):
+		var area := n as Area3D
+		area.collision_mask |= 1 | 2
+		area.monitoring = true
+
+
 func _extract_things(map_name: String) -> void:
 	if loader == null or not ("maps" in loader):
 		return
 	var maps: Dictionary = loader.maps
-	var key := map_name
+	var key: String = map_name
 	if not maps.has(key):
 		for k in maps.keys():
 			if String(k).to_upper() == map_name.to_upper():
@@ -148,20 +168,53 @@ func _extract_things(map_name: String) -> void:
 		spawn_pos = Vector3(0, 2, 0)
 
 
+func _ensure_ammo_pickups() -> void:
+	## E1M1 has few bullet clips; seed extras so the rifle doesn't run dry.
+	var ammo_n := 0
+	for item in pickup_spawns:
+		if item.get("type", "") == "ammo":
+			ammo_n += 1
+	var want := maxi(8, mini(14, enemy_spawns.size() / 2 + 4))
+	if ammo_n >= want:
+		return
+	var used: Array[Vector3] = [spawn_pos]
+	for item in pickup_spawns:
+		used.append(item["pos"])
+	var candidates: Array[Vector3] = []
+	for p in enemy_spawns:
+		candidates.append(p)
+	# Ring around the player start
+	for i in 6:
+		var a := float(i) / 6.0 * TAU
+		candidates.append(spawn_pos + Vector3(cos(a), 0.0, sin(a)) * 4.5)
+	if _host == null or not _host.is_inside_tree():
+		return
+	var space: PhysicsDirectSpaceState3D = _host.get_world_3d().direct_space_state
+	for p in candidates:
+		if ammo_n >= want:
+			break
+		var at := _ray_floor(space, p)
+		var too_close := false
+		for u in used:
+			if Vector3(u.x, 0, u.z).distance_to(Vector3(at.x, 0, at.z)) < 2.2:
+				too_close = true
+				break
+		if too_close:
+			continue
+		if at.distance_to(spawn_pos) < 1.6:
+			continue
+		pickup_spawns.append({"pos": at, "type": "ammo"})
+		used.append(at)
+		ammo_n += 1
+
+
 func _thing_matches_difficulty(t: Dictionary) -> bool:
 	var flags: int = int(t.get("flags", 0))
-	var easy := (flags & 1) != 0
-	var medium := (flags & 2) != 0
-	var hard := (flags & 4) != 0
-	if GameState == null:
-		return easy or medium
-	match GameState.difficulty:
-		GameState.Difficulty.EASY:
-			return easy
-		GameState.Difficulty.NORMAL:
-			return medium or easy
-		_:
-			return hard or medium or easy
+	# Bit 4 = multiplayer-only. Everything else (ITYTD through UV) is spawned
+	# so maps aren't empty on Easy; HP/damage still scale with difficulty.
+	if (flags & 16) != 0:
+		return false
+	return true
 
 
 func _snap_spawns_to_floor() -> void:
@@ -176,13 +229,55 @@ func _snap_spawns_to_floor() -> void:
 
 
 func _ray_floor(space: PhysicsDirectSpaceState3D, pos: Vector3) -> Vector3:
-	var from := Vector3(pos.x, 80.0, pos.z)
-	var to := Vector3(pos.x, -80.0, pos.z)
-	var q := PhysicsRayQueryParameters3D.create(from, to)
-	q.collision_mask = 1
-	var hit := space.intersect_ray(q)
-	if hit.is_empty():
+	var y := find_walkable_y(space, pos, 80.0, -80.0, [])
+	if is_nan(y):
 		if pos.y < -1000.0:
 			return Vector3(pos.x, 1.0, pos.z)
 		return pos
-	return hit.position + Vector3(0, 0.05, 0)
+	return Vector3(pos.x, y, pos.z)
+
+
+static func find_walkable_y(space: PhysicsDirectSpaceState3D, pos: Vector3, start_y: float, end_y: float, extra_exclude: Array) -> float:
+	## Skip ceiling / sky hits so we land on the actual sector floor (stairs included).
+	var exclude: Array[RID] = []
+	for item in extra_exclude:
+		if item is CollisionObject3D:
+			exclude.append((item as CollisionObject3D).get_rid())
+		elif item is RID:
+			exclude.append(item)
+	for _i in 16:
+		var from := Vector3(pos.x, start_y, pos.z)
+		var to := Vector3(pos.x, end_y, pos.z)
+		var q := PhysicsRayQueryParameters3D.create(from, to)
+		q.collision_mask = 1
+		q.exclude = exclude
+		var hit := space.intersect_ray(q)
+		if hit.is_empty():
+			return NAN
+		var col: Object = hit.get("collider")
+		if col is CollisionObject3D:
+			exclude.append((col as CollisionObject3D).get_rid())
+		if _is_non_walkable_surface(col, hit.get("normal", Vector3.UP)):
+			if col is Node:
+				var n := col as Node
+				if n.get_parent() is CollisionObject3D:
+					exclude.append(n.get_parent())
+			continue
+		return (hit.position as Vector3).y + 0.02
+	return NAN
+
+
+static func _is_non_walkable_surface(col: Object, normal: Vector3) -> bool:
+	if normal.y < 0.25:
+		return true
+	var n: Node = col as Node
+	var hops := 0
+	while n != null and hops < 6:
+		var nm := String(n.name).to_lower()
+		if n.has_meta("ceil") or nm.begins_with("ceil") or "skybox" in nm or nm.begins_with("surrounding"):
+			return true
+		if n.has_meta("floor") or nm.begins_with("floor"):
+			return false
+		n = n.get_parent()
+		hops += 1
+	return false

@@ -24,6 +24,7 @@ var _model: Node3D
 var _anim: AnimationPlayer
 var _reloading: bool = false
 var _fire_cd: float = 0.0
+var _empty_click_cd: float = 0.0
 ## Full-auto fire rate (seconds between shots). Independent of long fire anims.
 @export var fire_interval: float = 0.09
 var _muzzle: Marker3D
@@ -68,6 +69,8 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if _fire_cd > 0.0:
 		_fire_cd = maxf(0.0, _fire_cd - delta)
+	if _empty_click_cd > 0.0:
+		_empty_click_cd = maxf(0.0, _empty_click_cd - delta)
 	if _flash_timer > 0.0:
 		_flash_timer -= delta
 		_flash.light_energy = 4.0 * clampf(_flash_timer / 0.05, 0.0, 1.0)
@@ -165,9 +168,8 @@ func _play_oneshot(name: String, block_reload: bool = false) -> bool:
 
 func _on_anim_finished(anim_name: StringName) -> void:
 	var n := String(anim_name)
-	if n == ANIM_RELOAD or n == ANIM_RELOAD_FULL:
-		_reloading = false
-		reload_finished.emit()
+	if n == ANIM_RELOAD or n == ANIM_RELOAD_FULL or n.ends_with("Reload_t") or n.ends_with("Reload_f"):
+		_complete_reload()
 	elif n == ANIM_EQUIP:
 		equip_finished.emit()
 	# Hold last frame as rest pose
@@ -182,10 +184,18 @@ func is_busy() -> bool:
 
 
 func try_fire() -> bool:
-	if _reloading or _fire_cd > 0.0:
+	if _reloading:
+		return false
+	if _fire_cd > 0.0:
+		return false
+	if GameState.mag <= 0:
+		if GameState.reserve_ammo > 0:
+			try_reload()
+		elif _empty_click_cd <= 0.0:
+			SFX.play_2d(self, "empty", -6.0)
+			_empty_click_cd = 0.25
 		return false
 	if not GameState.try_consume_shot():
-		SFX.play_2d(self, "empty", -6.0)
 		return false
 	SFX.play_2d(self, "shoot", -4.0)
 	_flash_timer = 0.05
@@ -198,6 +208,8 @@ func try_fire() -> bool:
 		tw.tween_property(self, "position", GUN_POS + Vector3(0, 0.01, 0.03), 0.04)
 		tw.tween_property(self, "position", GUN_POS, 0.08)
 	fired.emit()
+	if GameState.mag <= 0 and GameState.reserve_ammo > 0:
+		try_reload()
 	return true
 
 
@@ -206,22 +218,40 @@ func try_reload() -> bool:
 		return false
 	if GameState.mag >= GameState.mag_size or GameState.reserve_ammo <= 0:
 		return false
-	var anim_name := ANIM_RELOAD if _has_anim(ANIM_RELOAD) else ANIM_RELOAD_FULL
+	# Empty mag uses the full reload clip; tactical reload if rounds remain.
+	var anim_name := ANIM_RELOAD
+	if GameState.mag <= 0 and _has_anim(ANIM_RELOAD_FULL):
+		anim_name = ANIM_RELOAD_FULL
+	elif not _has_anim(ANIM_RELOAD) and _has_anim(ANIM_RELOAD_FULL):
+		anim_name = ANIM_RELOAD_FULL
+	_reloading = true
+	_fire_cd = 0.0
+	var duration := 1.35
 	if _has_anim(anim_name):
 		_play_oneshot(anim_name, true)
+		var clip := _anim.get_animation(anim_name)
+		if clip:
+			duration = clip.length
 	else:
-		_reloading = true
-		get_tree().create_timer(1.2).timeout.connect(func():
-			GameState.try_reload()
-			_reloading = false
-			reload_finished.emit()
-		)
-		return true
+		duration = 1.2
+	var tree := get_tree()
+	if tree:
+		tree.create_timer(duration).timeout.connect(_complete_reload)
 	return true
 
 
-func apply_reload_ammo() -> void:
+func _complete_reload() -> void:
+	if not _reloading:
+		return
+	_reloading = false
 	GameState.try_reload()
+	reload_finished.emit()
+
+
+func apply_reload_ammo() -> void:
+	# Ammo is applied in _complete_reload; keep this as a no-op-safe fallback.
+	if GameState.mag < GameState.mag_size and GameState.reserve_ammo > 0:
+		GameState.try_reload()
 
 
 func _configure_materials(root: Node) -> void:
@@ -239,6 +269,8 @@ func _configure_materials(root: Node) -> void:
 		var mi := n as MeshInstance3D
 		mi.layers = 2
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.sorting_offset = 16.0
+		mi.extra_cull_margin = 4.0
 		if mi.mesh == null:
 			continue
 		for s in mi.mesh.get_surface_count():
@@ -247,6 +279,8 @@ func _configure_materials(root: Node) -> void:
 				var bm := (mat as BaseMaterial3D).duplicate() as BaseMaterial3D
 				bm.metallic = minf(bm.metallic, 0.35)
 				bm.roughness = maxf(bm.roughness, 0.45)
+				# Keep depth test so hands and gun sort correctly.
+				bm.no_depth_test = false
 				if bm is StandardMaterial3D:
 					var sm := bm as StandardMaterial3D
 					if not sm.emission_enabled:
@@ -254,6 +288,10 @@ func _configure_materials(root: Node) -> void:
 						sm.emission = Color(0.15, 0.15, 0.15)
 						sm.emission_energy_multiplier = 0.35
 				mi.set_surface_override_material(s, bm)
+			elif mat == null:
+				var fallback := StandardMaterial3D.new()
+				fallback.albedo_color = Color(0.3, 0.3, 0.32)
+				mi.set_surface_override_material(s, fallback)
 
 
 func _set_layers_recursive(node: Node, layer_bit: int) -> void:

@@ -25,12 +25,17 @@ var _active: bool = false
 var _fire_held: bool = false
 ## Read by GodotWadImporter door / switch / exit triggers.
 var interactPressed: bool = false
+var _interact_hold: float = 0.0
 
 func _ready() -> void:
 	add_to_group("player")
+	# Layer 2 only: pickups + door areas (mask includes 2). Staying off
+	# world layer 1 keeps enemy sight rays from hitting the player capsule.
 	collision_layer = 2
 	collision_mask = 1
-	floor_snap_length = 0.6
+	safe_margin = 0.08
+	max_slides = 8
+	floor_snap_length = 0.85
 	floor_max_angle = deg_to_rad(62.0)
 	floor_stop_on_slope = false
 	floor_constant_speed = true
@@ -180,7 +185,11 @@ func _toggle_fullscreen() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	interactPressed = _active and not GameState.player_dead and not GameState.paused and Input.is_action_pressed("interact")
+	if _interact_hold > 0.0:
+		_interact_hold = maxf(0.0, _interact_hold - delta)
+	interactPressed = _active and not GameState.player_dead and not GameState.paused and (
+		Input.is_action_pressed("interact") or _interact_hold > 0.0
+	)
 	if not _active or GameState.player_dead or GameState.paused:
 		_fire_held = false
 		velocity = Vector3.ZERO
@@ -210,6 +219,7 @@ func _physics_process(delta: float) -> void:
 		velocity.x = direction.x * speed
 		velocity.z = direction.z * speed
 		_bob_t += delta * bob_speed * (speed / walk_speed)
+		_try_step_up(direction)
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, speed)
 		velocity.z = move_toward(velocity.z, 0.0, speed)
@@ -285,22 +295,30 @@ func _spawn_impact(pos: Vector3, normal: Vector3) -> void:
 
 
 func _try_step_up(dir: Vector3) -> void:
-	## Lift over short risers if the ramp is missed. Capsules cannot stair-step.
-	if not is_on_wall():
+	## Doom stairs are 8–16 map units (~0.30–0.61 m). Capsules need an explicit step.
+	var horiz := Vector3(dir.x, 0.0, dir.z)
+	if horiz.length_squared() < 0.0001:
 		return
-	var forward := Vector3(dir.x, 0.0, dir.z).normalized() * 0.28
+	var forward := horiz.normalized() * 0.24
 	if not test_move(global_transform, forward):
 		return
-	var lift := 0.42
-	var raised := global_transform.translated(Vector3(0, lift, 0))
-	if test_move(raised, forward):
+	for lift in [0.18, 0.30, 0.42, 0.54, 0.66, 0.80]:
+		var up := Vector3(0.0, lift, 0.0)
+		if test_move(global_transform, up):
+			continue
+		var raised := global_transform.translated(up)
+		if test_move(raised, forward):
+			continue
+		global_position += up + forward
+		var hit := move_and_collide(Vector3(0.0, -lift, 0.0))
+		if hit == null:
+			global_position.y -= lift * 0.5
 		return
-	global_position.y += lift
-	global_position += forward * 0.12
 
 
 func _try_interact() -> void:
 	interactPressed = true
+	_interact_hold = 0.25
 	if _level != null and _level.has_method("try_open_door_near"):
 		var dir := -camera.global_transform.basis.z
 		_level.try_open_door_near(global_position, dir)

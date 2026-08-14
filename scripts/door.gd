@@ -20,6 +20,11 @@ func try_open() -> bool:
 
 
 func _process(delta: float) -> void:
+	# Auto-open when the player walks up so rooms stay gated but playable.
+	if state == "closed" or state == "closing":
+		var player := get_tree().get_first_node_in_group("player") as Node3D
+		if player and player.global_position.distance_to(global_position) < 3.4:
+			try_open()
 	if state == "opening":
 		open_offset = minf(1.0, open_offset + delta * OPEN_SPEED)
 		_apply_offset()

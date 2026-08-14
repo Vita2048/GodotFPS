@@ -45,16 +45,16 @@ func advance_sector() -> void:
 
 func enemy_count_cap() -> int:
 	## Smoother curve: Easy still has action, Hard is tougher not a wall.
-	var base := 5
+	var base := 12
 	match difficulty:
 		Difficulty.EASY:
-			base = 5
+			base = 12
 		Difficulty.NORMAL:
-			base = 7
+			base = 14
 		_:
-			base = 9
+			base = 16
 	if current_sector >= 2:
-		base += 1
+		base += 3
 	return base
 
 

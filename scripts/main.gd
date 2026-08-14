@@ -91,9 +91,26 @@ func _build_level() -> void:
 	player.global_position = spawn + Vector3(0, 0.1, 0)
 	player.velocity = Vector3.ZERO
 
+	var model_pool: Array[String] = [
+		"res://assets/characters/police.glb",
+		"res://assets/characters/swat.fbx",
+		"res://assets/characters/Alex.fbx",
+		"res://assets/characters/Swat1.fbx",
+	]
+	var usable: Array[String] = []
+	for path in model_pool:
+		if ResourceLoader.exists(path):
+			usable.append(path)
+	if usable.is_empty():
+		usable.append("res://assets/characters/police.glb")
+
+	usable.shuffle()
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
 	for p in level._enemy_spawns:
 		var e := Enemy.new()
-		e.position = Vector3(p.x, 0.0, p.z)
+		e.model_path = usable[rng.randi_range(0, usable.size() - 1)]
+		e.position = Vector3(p.x, p.y, p.z)
 		entities.add_child(e)
 
 	for item in level._pickup_spawns:

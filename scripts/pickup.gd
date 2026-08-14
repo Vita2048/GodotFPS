@@ -21,34 +21,15 @@ func _ready() -> void:
 	add_child(shape)
 
 	_mesh = MeshInstance3D.new()
-	if pickup_type == "health":
-		var box := BoxMesh.new()
-		box.size = Vector3(0.45, 0.45, 0.18)
-		_mesh.mesh = box
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color(0.95, 0.95, 0.95)
-		mat.emission_enabled = true
-		mat.emission = Color(1.0, 0.15, 0.15)
-		mat.emission_energy_multiplier = 1.8
-		_mesh.material_override = mat
-		amount = 25
-	else:
-		var cyl := CylinderMesh.new()
-		cyl.top_radius = 0.18
-		cyl.bottom_radius = 0.18
-		cyl.height = 0.45
-		_mesh.mesh = cyl
-		var mat2 := StandardMaterial3D.new()
-		mat2.albedo_color = Color(0.75, 0.65, 0.15)
-		mat2.metallic = 0.7
-		mat2.roughness = 0.35
-		mat2.emission_enabled = true
-		mat2.emission = Color(0.9, 0.7, 0.1)
-		mat2.emission_energy_multiplier = 0.8
-		_mesh.material_override = mat2
-		amount = 20
-	_mesh.position.y = 0.6
+	_mesh.name = "Visual"
+	_mesh.position.y = 0.55
 	add_child(_mesh)
+	if pickup_type == "health":
+		_build_medkit(_mesh)
+		amount = 35
+	else:
+		_build_ammo_crate(_mesh)
+		amount = 30
 
 	# Soft glow (no realtime light on low — emissive material is enough)
 	if QualitySettings == null or QualitySettings.level != QualitySettings.Quality.LOW:
@@ -59,6 +40,117 @@ func _ready() -> void:
 		light.shadow_enabled = false
 		light.position.y = 0.7
 		add_child(light)
+
+
+func _build_medkit(root: Node3D) -> void:
+	var case_mat := StandardMaterial3D.new()
+	case_mat.albedo_color = Color(0.95, 0.96, 0.98)
+	case_mat.metallic = 0.05
+	case_mat.roughness = 0.42
+
+	var red := StandardMaterial3D.new()
+	red.albedo_color = Color(0.82, 0.05, 0.08)
+	red.emission_enabled = true
+	red.emission = Color(1.0, 0.08, 0.08)
+	red.emission_energy_multiplier = 1.6
+	red.cull_mode = BaseMaterial3D.CULL_DISABLED
+
+	# White first-aid case, large faces on X/Z so the cross stays readable while it spins
+	var body := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.38, 0.38, 0.16)
+	body.mesh = box
+	body.material_override = case_mat
+	root.add_child(body)
+
+	# Red border
+	var rim := MeshInstance3D.new()
+	var rbox := BoxMesh.new()
+	rbox.size = Vector3(0.40, 0.40, 0.02)
+	rim.mesh = rbox
+	rim.position.z = 0.085
+	rim.material_override = red
+	root.add_child(rim)
+	var rim2 := rim.duplicate() as MeshInstance3D
+	rim2.position.z = -0.085
+	root.add_child(rim2)
+
+	# Classic red cross on both faces
+	for face in [0.095, -0.095]:
+		var bar_h := MeshInstance3D.new()
+		var hbox := BoxMesh.new()
+		hbox.size = Vector3(0.26, 0.08, 0.03)
+		bar_h.mesh = hbox
+		bar_h.position = Vector3(0, 0, face)
+		bar_h.material_override = red
+		root.add_child(bar_h)
+		var bar_v := MeshInstance3D.new()
+		var vbox := BoxMesh.new()
+		vbox.size = Vector3(0.08, 0.26, 0.03)
+		bar_v.mesh = vbox
+		bar_v.position = Vector3(0, 0, face)
+		bar_v.material_override = red
+		root.add_child(bar_v)
+
+	# Handle
+	var handle := MeshInstance3D.new()
+	var hh := BoxMesh.new()
+	hh.size = Vector3(0.14, 0.03, 0.05)
+	handle.mesh = hh
+	handle.position = Vector3(0, 0.22, 0)
+	handle.material_override = red
+	root.add_child(handle)
+
+
+func _build_ammo_crate(root: Node3D) -> void:
+	var crate_mat := StandardMaterial3D.new()
+	crate_mat.albedo_color = Color(0.28, 0.24, 0.14)
+	crate_mat.metallic = 0.15
+	crate_mat.roughness = 0.62
+
+	var metal := StandardMaterial3D.new()
+	metal.albedo_color = Color(0.55, 0.5, 0.32)
+	metal.metallic = 0.8
+	metal.roughness = 0.32
+	metal.emission_enabled = true
+	metal.emission = Color(0.85, 0.62, 0.12)
+	metal.emission_energy_multiplier = 0.55
+
+	var brass := StandardMaterial3D.new()
+	brass.albedo_color = Color(0.82, 0.62, 0.22)
+	brass.metallic = 0.9
+	brass.roughness = 0.22
+	brass.emission_enabled = true
+	brass.emission = Color(0.95, 0.7, 0.15)
+	brass.emission_energy_multiplier = 0.7
+
+	var crate := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.4, 0.22, 0.28)
+	crate.mesh = box
+	crate.material_override = crate_mat
+	root.add_child(crate)
+
+	var rim := MeshInstance3D.new()
+	var rbox := BoxMesh.new()
+	rbox.size = Vector3(0.42, 0.03, 0.3)
+	rim.mesh = rbox
+	rim.position.y = 0.12
+	rim.material_override = metal
+	root.add_child(rim)
+
+	for i in 4:
+		var round := MeshInstance3D.new()
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = 0.018
+		cyl.bottom_radius = 0.018
+		cyl.height = 0.09
+		cyl.radial_segments = 8
+		round.mesh = cyl
+		round.material_override = brass
+		round.rotation_degrees = Vector3(90, 0, 0)
+		round.position = Vector3(-0.1 + i * 0.065, 0.16, 0.0)
+		root.add_child(round)
 
 
 func _process(delta: float) -> void:

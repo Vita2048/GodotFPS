@@ -33,10 +33,18 @@ var anim_pistol_walk: String = ""
 var anim_shoot: String = ""
 var anim_die: String = ""
 
-# Decompressed Base Toolbox police (Mixamo rig: mixamorigHips without colons).
-# Clips are Mixamo FBX converted to GLB (mixamorig:Hips with colons) — retargeted on import.
+## Optional override set by the spawner so each enemy can use a different mesh.
+@export var model_path: String = ""
+
+# Mixamo-style bodies. Anim clips retarget onto whichever skeleton is present.
 const MODEL_PATHS := [
 	"res://assets/characters/police.glb",
+	"res://assets/characters/swat.fbx",
+	"res://assets/characters/Alex.fbx",
+	"res://assets/characters/Swat1.fbx",
+	"res://assets/characters/swat.glb",
+	"res://assets/characters/Alex.glb",
+	"res://assets/characters/Swat1.glb",
 ]
 const ANIM_PATHS := {
 	"walk": "res://assets/characters/Walking.glb",
@@ -100,7 +108,13 @@ func _load_visuals_and_anims() -> void:
 	add_child(_model_root)
 
 	var model: Node3D = null
+	var tried: Array[String] = []
+	if model_path != "":
+		tried.append(model_path)
 	for path in MODEL_PATHS:
+		if path not in tried:
+			tried.append(path)
+	for path in tried:
 		if not ResourceLoader.exists(path):
 			continue
 		var ps = load(path)
@@ -109,13 +123,10 @@ func _load_visuals_and_anims() -> void:
 			print("[Enemy] loaded model from ", path)
 			break
 	if model == null:
-		push_warning("[Enemy] No police model; using placeholder capsule")
+		push_warning("[Enemy] No character model; using placeholder capsule")
 		model = _placeholder_mesh()
 	_model_root.add_child(model)
-
-	# police.glb is centimeters (hips ~100 units). Fixed scale — no fragile AABB math.
-	model.scale = Vector3.ONE * 0.01
-	model.position = Vector3.ZERO
+	_fit_character_scale(model)
 
 	_anim = _find_anim_player(model)
 	if _anim == null:
@@ -153,7 +164,7 @@ func _load_visuals_and_anims() -> void:
 func _attach_hand_weapon(skeleton: Skeleton3D) -> void:
 	var bone_name := "mixamorigRightHand"
 	if skeleton.find_bone(bone_name) < 0:
-		for cand in ["mixamorig:RightHand", "RightHand", "Hand_R", "hand_r"]:
+		for cand in ["mixamorig_RightHand", "mixamorig:RightHand", "RightHand", "Hand_R", "hand_r"]:
 			if skeleton.find_bone(cand) >= 0:
 				bone_name = cand
 				break
@@ -182,7 +193,9 @@ func _attach_hand_weapon(skeleton: Skeleton3D) -> void:
 	var holder := Node3D.new()
 	holder.name = "WeaponHolder"
 	attach.add_child(holder)
-	holder.position = wpos
+	# Pose is authored in Mixamo-cm space (police.glb). Meter-scale skeletons need 1cm = 0.01m.
+	var pose_scale := _skeleton_pose_scale(skeleton)
+	holder.position = wpos * pose_scale
 	holder.rotation_degrees = wrot
 
 	var gun: Node3D = null
@@ -202,11 +215,12 @@ func _attach_hand_weapon(skeleton: Skeleton3D) -> void:
 	gun.rotation = Vector3.ZERO
 	gun.scale = Vector3.ONE
 
-	# Auto-fit size in skeleton cm-space (parent model is ×0.01 → meters)
+	# Fit gun length in the skeleton's local units (cm or meters).
 	var aabb := _weapon_local_aabb(gun)
 	var longest := maxf(aabb.size.x, maxf(aabb.size.y, aabb.size.z))
 	if longest > 0.0001:
-		var s: float = wlen / longest
+		var target_len: float = wlen * pose_scale
+		var s: float = target_len / longest
 		gun.scale = Vector3.ONE * s
 		var center: Vector3 = (aabb.position + aabb.size * 0.5) * s
 		gun.position = -center
@@ -338,8 +352,8 @@ func _prepare_meshes(root: Node) -> void:
 		gi.visible = true
 		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		# Skinned meshes often report a tiny/wrong AABB and get frustum-culled → "invisible but shooting"
-		gi.extra_cull_margin = 4.0
-		gi.custom_aabb = AABB(Vector3(-1.2, 0.0, -1.2), Vector3(2.4, 2.2, 2.4))
+		gi.extra_cull_margin = 12.0
+		gi.custom_aabb = AABB(Vector3(-3.0, -1.0, -3.0), Vector3(6.0, 5.0, 6.0))
 		gi.visibility_range_end = 0.0
 		gi.visibility_range_begin = 0.0
 		if gi is MeshInstance3D:
@@ -374,6 +388,50 @@ func _prepare_meshes(root: Node) -> void:
 					bm.cull_mode = BaseMaterial3D.CULL_DISABLED
 					mi.set_surface_override_material(s, bm)
 					_surface_mats.append({"mi": mi, "surface": s, "mat": bm})
+
+
+func _fit_character_scale(model: Node3D) -> void:
+	## Police.glb is Mixamo-cm. Godot-imported Mixamo FBX is already meters / Y-up.
+	## Do not AABB-fit skinned meshes (bind-pose AABB is often empty or huge).
+	var sk := _find_skeleton(model)
+	if _skeleton_is_meters(sk):
+		model.scale = Vector3.ONE
+	else:
+		model.scale = Vector3.ONE * 0.01
+	model.position = Vector3.ZERO
+
+
+func _hips_rest_origin(skeleton: Skeleton3D) -> Vector3:
+	if skeleton == null or skeleton.get_bone_count() == 0:
+		return Vector3.ZERO
+	for i in skeleton.get_bone_count():
+		var n := skeleton.get_bone_name(i).to_lower().replace(":", "").replace("_", "")
+		if n.ends_with("hips") or n.ends_with("hip"):
+			return skeleton.get_bone_rest(i).origin
+	return skeleton.get_bone_rest(0).origin
+
+
+func _skeleton_is_meters(skeleton: Skeleton3D) -> bool:
+	## Hips around y=1 → meters. Hips around y=100 → centimeters.
+	var o := _hips_rest_origin(skeleton)
+	return o.length() < 20.0
+
+
+func _scale_position_tracks(anim: Animation, factor: float) -> void:
+	if anim == null or is_equal_approx(factor, 1.0):
+		return
+	for i in anim.get_track_count():
+		if anim.track_get_type(i) != Animation.TYPE_POSITION_3D:
+			continue
+		for k in anim.track_get_key_count(i):
+			var v: Variant = anim.track_get_key_value(i, k)
+			if v is Vector3:
+				anim.track_set_key_value(i, k, (v as Vector3) * factor)
+
+
+func _skeleton_pose_scale(skeleton: Skeleton3D) -> float:
+	## Weapon Tuner pose is in centimeters.
+	return 0.01 if _skeleton_is_meters(skeleton) else 1.0
 
 
 func _placeholder_mesh() -> Node3D:
@@ -441,6 +499,10 @@ func _import_external_anims() -> void:
 				copied.loop_mode = Animation.LOOP_LINEAR
 			_retarget_mixamo_tracks(copied, skeleton)
 			_strip_root_motion(copied)
+			# Mixamo clips are authored in centimeters. Meter-scale FBX skeletons
+			# need position keys scaled down or the mesh explodes and gets culled.
+			if _skeleton_is_meters(skeleton):
+				_scale_position_tracks(copied, 0.01)
 			var safe_name := "%s__%s" % [key, String(anim_name).get_file().replace("|", "_").replace(" ", "_")]
 			if target_lib.has_animation(safe_name):
 				target_lib.remove_animation(safe_name)
@@ -480,9 +542,11 @@ func _retarget_mixamo_tracks(anim: Animation, skeleton: Skeleton3D) -> void:
 
 		var candidates: Array[String] = [
 			bone,
+			bone.replace("mixamorig:", "mixamorig_"),
 			bone.replace("mixamorig:", "mixamorig"),
 			bone.replace(":", ""),
 			bone.replace("mixamorig_", "mixamorig"),
+			bone.replace("mixamorig", "mixamorig_").replace("mixamorig__", "mixamorig_"),
 		]
 		# Explicit Mixamo colon → no-colon (police.glb style)
 		if bone.begins_with("mixamorig:"):

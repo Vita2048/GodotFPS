@@ -3,6 +3,7 @@ class_name Player
 
 @export var walk_speed: float = 5.5
 @export var sprint_speed: float = 8.5
+@export var jump_speed: float = 5.2
 @export var mouse_sens: float = 0.0025
 @export var bob_amount: float = 0.03
 @export var bob_speed: float = 10.0
@@ -27,7 +28,13 @@ func _ready() -> void:
 	add_to_group("player")
 	collision_layer = 2
 	collision_mask = 1
-	floor_snap_length = 0.2
+	floor_snap_length = 0.55
+	floor_max_angle = deg_to_rad(55.0)
+	if not InputMap.has_action("jump"):
+		InputMap.add_action("jump")
+		var ev := InputEventKey.new()
+		ev.physical_keycode = KEY_SPACE
+		InputMap.action_add_event("jump", ev)
 
 	_weapon = WeaponViewmodel.new()
 	_weapon.name = "Weapon"
@@ -200,7 +207,9 @@ func _physics_process(delta: float) -> void:
 		velocity.x = move_toward(velocity.x, 0.0, speed)
 		velocity.z = move_toward(velocity.z, 0.0, speed)
 
-	if not is_on_floor():
+	if Input.is_action_just_pressed("jump") and is_on_floor():
+		velocity.y = jump_speed
+	elif not is_on_floor():
 		velocity.y -= ProjectSettings.get_setting("physics/3d/default_gravity") * delta
 	else:
 		velocity.y = 0.0

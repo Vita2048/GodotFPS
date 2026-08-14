@@ -26,6 +26,7 @@ var _fire_held: bool = false
 ## Read by GodotWadImporter door / switch / exit triggers.
 var interactPressed: bool = false
 var _interact_hold: float = 0.0
+var inventory: Dictionary = {}
 
 func _ready() -> void:
 	add_to_group("player")
@@ -98,6 +99,23 @@ func _ignore_mouse_on_controls(node: Node) -> void:
 		(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for c in node.get_children():
 		_ignore_mouse_on_controls(c)
+
+
+func clear_inventory() -> void:
+	inventory.clear()
+
+
+func give_key(key_name: String) -> void:
+	if key_name == "":
+		return
+	if not inventory.has(key_name):
+		inventory[key_name] = {"count": 0}
+	inventory[key_name]["count"] = int(inventory[key_name]["count"]) + 1
+
+
+func popupText(msg: String) -> void:
+	if hud and hud.has_method("show_pickup"):
+		hud.show_pickup(msg)
 
 
 func activate() -> void:
@@ -252,7 +270,7 @@ func _try_shoot() -> void:
 		return
 	if not _weapon.try_fire():
 		return
-	Enemy.broadcast_gunshot(self, global_position, 24.0)
+	Enemy.broadcast_gunshot(self, global_position)
 	shoot_ray.force_raycast_update()
 	if shoot_ray.is_colliding():
 		var collider := shoot_ray.get_collider()

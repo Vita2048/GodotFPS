@@ -8,8 +8,7 @@ signal quality_changed(level: Quality)
 var level: Quality = Quality.LOW
 
 func _ready() -> void:
-	# Default to Low for weaker machines; players can raise with F10.
-	apply(Quality.LOW)
+	apply(Quality.MEDIUM)
 
 
 func _input(event: InputEvent) -> void:

@@ -1,9 +1,10 @@
 extends Area3D
 class_name Pickup
 
-@export var pickup_type: String = "ammo" # ammo | health
+@export var pickup_type: String = "ammo" # ammo | health | key
 @export var amount: int = 15
 @export var respawn_seconds: float = 22.0
+@export var key_name: String = ""
 
 var _bob_t: float = 0.0
 var _mesh: MeshInstance3D
@@ -29,6 +30,9 @@ func _ready() -> void:
 	if pickup_type == "health":
 		_build_medkit(_mesh)
 		amount = 35
+	elif pickup_type == "key":
+		_build_key(_mesh)
+		respawn_seconds = 0.0
 	else:
 		_build_ammo_crate(_mesh)
 		amount = 30
@@ -81,6 +85,38 @@ func _build_medkit(root: Node3D) -> void:
 		bar_v.position = Vector3(0, 0, face_z)
 		bar_v.material_override = red
 		root.add_child(bar_v)
+
+
+func _build_key(root: Node3D) -> void:
+	var color := Color(0.85, 0.12, 0.12)
+	var low := key_name.to_lower()
+	if "blue" in low:
+		color = Color(0.15, 0.4, 0.95)
+	elif "yellow" in low:
+		color = Color(0.95, 0.82, 0.12)
+	var card := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.22, 0.32, 0.04)
+	card.mesh = box
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.emission_enabled = true
+	mat.emission = color
+	mat.emission_energy_multiplier = 0.85
+	mat.metallic = 0.35
+	mat.roughness = 0.35
+	card.material_override = mat
+	root.add_child(card)
+	var chip := MeshInstance3D.new()
+	var cbox := BoxMesh.new()
+	cbox.size = Vector3(0.1, 0.08, 0.02)
+	chip.mesh = cbox
+	chip.position = Vector3(0, 0.08, 0.03)
+	var chip_mat := StandardMaterial3D.new()
+	chip_mat.albedo_color = Color(0.85, 0.75, 0.35)
+	chip_mat.metallic = 0.8
+	chip.material_override = chip_mat
+	root.add_child(chip)
 
 
 func _build_ammo_crate(root: Node3D) -> void:
@@ -160,6 +196,14 @@ func _try_collect(body: Node) -> void:
 		if GameState.health >= GameState.max_health:
 			return
 		GameState.heal(amount)
+	elif pickup_type == "key":
+		if body.has_method("give_key"):
+			body.give_key(key_name)
+		elif "inventory" in body:
+			var inv: Dictionary = body.inventory
+			if not inv.has(key_name):
+				inv[key_name] = {"count": 0}
+			inv[key_name]["count"] = int(inv[key_name]["count"]) + 1
 	else:
 		GameState.add_ammo(amount)
 	_play_pickup()
@@ -174,6 +218,8 @@ func _flash_hud() -> void:
 		if p.get("hud") and p.hud.has_method("show_pickup"):
 			if pickup_type == "health":
 				p.hud.show_pickup("+%d HEALTH" % amount)
+			elif pickup_type == "key":
+				p.hud.show_pickup(key_name.to_upper())
 			else:
 				p.hud.show_pickup("+%d AMMO" % amount)
 

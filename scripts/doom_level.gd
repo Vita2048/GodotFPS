@@ -12,6 +12,14 @@ const MONSTER_TYPES := {
 }
 const HEALTH_TYPES := {2011: true, 2012: true, 2014: true, 83: true}
 ## Clips, shells, cells, rockets, backpacks, and weapons (give ammo).
+const KEY_TYPES := {
+	5: "Blue keycard",
+	6: "Yellow keycard",
+	13: "Red keycard",
+	38: "Red skull key",
+	39: "Yellow skull key",
+	40: "Blue skull key",
+}
 const AMMO_TYPES := {
 	8: true, 17: true, 2001: true, 2002: true, 2003: true, 2004: true, 2006: true,
 	2007: true, 2008: true, 2010: true, 2046: true, 2047: true, 2048: true, 2049: true,
@@ -43,6 +51,7 @@ func setup(host: Node) -> void:
 	loader.addOccluder = false
 	loader.unwrapLightmap = false
 	loader.mergeMesh = 3
+	loader.textureFiltering = true
 	if loader.has_method("initialize"):
 		loader.initialize([WAD_PATH], "Doom", "doom")
 	_refresh_map_list()
@@ -104,6 +113,7 @@ func load_map(map_name: String) -> bool:
 	_extract_things(map_name)
 	_snap_spawns_to_floor()
 	_ensure_ammo_pickups()
+	_ensure_easy_health()
 	var ammo_n := 0
 	for item in pickup_spawns:
 		if item.get("type", "") == "ammo":
@@ -164,6 +174,8 @@ func _extract_things(map_name: String) -> void:
 			pickup_spawns.append({"pos": pos, "type": "health"})
 		elif AMMO_TYPES.has(typ):
 			pickup_spawns.append({"pos": pos, "type": "ammo"})
+		elif KEY_TYPES.has(typ):
+			pickup_spawns.append({"pos": pos, "type": "key", "key_name": KEY_TYPES[typ]})
 	if not found_player:
 		spawn_pos = Vector3(0, 2, 0)
 
@@ -208,13 +220,48 @@ func _ensure_ammo_pickups() -> void:
 		ammo_n += 1
 
 
+func _ensure_easy_health() -> void:
+	if GameState == null or GameState.difficulty != GameState.Difficulty.EASY:
+		return
+	var health_n := 0
+	for item in pickup_spawns:
+		if item.get("type", "") == "health":
+			health_n += 1
+	if health_n >= 4:
+		return
+	if _host == null or not _host.is_inside_tree():
+		return
+	var space: PhysicsDirectSpaceState3D = _host.get_world_3d().direct_space_state
+	for i in 4:
+		var a := float(i) / 4.0 * TAU + 0.4
+		var p := _ray_floor(space, spawn_pos + Vector3(cos(a), 0.0, sin(a)) * 3.2)
+		if p.distance_to(spawn_pos) < 1.2:
+			continue
+		pickup_spawns.append({"pos": p, "type": "health"})
+		health_n += 1
+		if health_n >= 4:
+			break
+
+
 func _thing_matches_difficulty(t: Dictionary) -> bool:
 	var flags: int = int(t.get("flags", 0))
-	# Bit 4 = multiplayer-only. Everything else (ITYTD through UV) is spawned
-	# so maps aren't empty on Easy; HP/damage still scale with difficulty.
 	if (flags & 16) != 0:
 		return false
-	return true
+	var easy := (flags & 1) != 0
+	var medium := (flags & 2) != 0
+	var hard := (flags & 4) != 0
+	# Things with no skill bits still show in all modes.
+	if not easy and not medium and not hard:
+		return true
+	if GameState == null:
+		return easy or medium
+	match GameState.difficulty:
+		GameState.Difficulty.EASY:
+			return easy or medium
+		GameState.Difficulty.NORMAL:
+			return easy or medium
+		_:
+			return true
 
 
 func _snap_spawns_to_floor() -> void:

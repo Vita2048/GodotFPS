@@ -766,7 +766,7 @@ func _physics_process(delta: float) -> void:
 		state = State.ATTACK
 		velocity = Vector3.ZERO
 		_try_attack()
-	elif dist <= attack_range and can_see and _los_time > 0.12:
+	elif dist <= attack_range and can_see and _los_time > 0.22:
 		# Strafe / cautious advance with pistol walk, shoot periodically
 		state = State.ATTACK
 		var dir := to_player.normalized()
@@ -944,7 +944,7 @@ func _clear_shot(from_off: Vector3, to_off: Vector3) -> bool:
 	if motion.length_squared() < 0.01:
 		return true
 	var ball := SphereShape3D.new()
-	ball.radius = 0.12
+	ball.radius = 0.2
 	var params := PhysicsShapeQueryParameters3D.new()
 	params.shape = ball
 	params.transform = Transform3D(Basis(), from)
@@ -960,7 +960,7 @@ func _clear_shot(from_off: Vector3, to_off: Vector3) -> bool:
 		q.hit_from_inside = true
 		return space.intersect_ray(q).is_empty()
 	# safe fraction of 1.0 means the sphere reached the player
-	return frac[0] > 0.96
+	return frac[0] > 0.985
 
 
 func _try_attack() -> void:
@@ -997,7 +997,7 @@ func _deal_damage_to_player() -> void:
 	add_child(flash)
 	get_tree().create_timer(0.06).timeout.connect(flash.queue_free)
 	SFX.play_3d(get_parent(), "shoot", global_position + Vector3(0, 1.3, 0), -10.0)
-	broadcast_gunshot(self, global_position, 24.0)
+	broadcast_gunshot(self, global_position)
 
 
 func take_damage(amount: int, hit_pos: Vector3 = Vector3.ZERO) -> void:
@@ -1120,16 +1120,22 @@ func _restore_materials() -> void:
 		mi.set_surface_override_material(s, mat)
 
 
-func hear_gunshot(at: Vector3, radius: float = 24.0) -> void:
+func hear_gunshot(at: Vector3, radius: float = -1.0) -> void:
 	if state == State.DEAD:
 		return
+	if radius < 0.0 and GameState:
+		radius = GameState.hear_radius()
+	elif radius < 0.0:
+		radius = 16.0
 	if global_position.distance_to(at) <= radius:
 		_aware = true
 
 
-static func broadcast_gunshot(from: Node, at: Vector3, radius: float = 24.0) -> void:
+static func broadcast_gunshot(from: Node, at: Vector3, radius: float = -1.0) -> void:
 	if from == null or not from.is_inside_tree():
 		return
+	if radius < 0.0 and GameState:
+		radius = GameState.hear_radius()
 	for n in from.get_tree().get_nodes_in_group("enemy"):
 		if n != from and n.has_method("hear_gunshot"):
 			n.hear_gunshot(at, radius)

@@ -15,7 +15,7 @@ func _ready() -> void:
 	_setup_environment()
 	# Apply Low quality after env exists (also runs from autoload, this refreshes env refs)
 	if QualitySettings:
-		QualitySettings.apply(QualitySettings.Quality.LOW)
+		QualitySettings.apply(QualitySettings.Quality.MEDIUM)
 	if GameState:
 		GameState.set_difficulty(GameState.Difficulty.EASY)
 	if title_ui:
@@ -29,6 +29,8 @@ func _ready() -> void:
 	doom.setup(self)
 	if doom.map_count() > 0:
 		GameState.max_sectors = doom.map_count()
+	if title_ui and title_ui.has_method("set_maps"):
+		title_ui.set_maps(doom.map_names)
 	_build_level()
 	if player:
 		player.set_level(level)
@@ -63,17 +65,19 @@ func _setup_environment() -> void:
 	sky.sky_material = sky_mat
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.85
+	env.ambient_light_energy = 1.05
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.12
-	env.ssao_enabled = false
+	env.tonemap_exposure = 1.18
+	env.ssao_enabled = true
+	env.ssao_radius = 1.4
+	env.ssao_intensity = 1.6
 	env.ssil_enabled = false
 	env.glow_enabled = true
-	env.glow_intensity = 0.2
+	env.glow_intensity = 0.32
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.62, 0.68, 0.78)
-	env.fog_density = 0.0025
-	env.fog_aerial_perspective = 0.6
+	env.fog_light_color = Color(0.55, 0.58, 0.62)
+	env.fog_density = 0.0014
+	env.fog_aerial_perspective = 0.35
 	env.volumetric_fog_enabled = false
 	env.adjustment_enabled = true
 	env.adjustment_brightness = 1.06
@@ -88,7 +92,7 @@ func _setup_environment() -> void:
 		sun.name = "FillSun"
 		add_child(sun)
 	sun.light_color = Color(1.0, 0.92, 0.78)
-	sun.light_energy = 1.15
+	sun.light_energy = 1.55
 	sun.rotation_degrees = Vector3(-28, 130, 0)
 	sun.shadow_enabled = false
 
@@ -120,6 +124,8 @@ func _build_level() -> void:
 
 	player.global_position = spawn + Vector3(0, 0.15, 0)
 	player.velocity = Vector3.ZERO
+	if player.has_method("clear_inventory"):
+		player.clear_inventory()
 
 	var model_pool: Array[String] = [
 		"res://assets/characters/police.glb",
@@ -146,6 +152,8 @@ func _build_level() -> void:
 	for item in pick_pts:
 		var pk := Pickup.new()
 		pk.pickup_type = item["type"]
+		if item.has("key_name"):
+			pk.key_name = String(item["key_name"])
 		pk.position = item["pos"] + Vector3(0, 0.35, 0)
 		entities.add_child(pk)
 
@@ -169,13 +177,19 @@ func _on_start() -> void:
 			GameState.score = kept_score
 			GameState.score_changed.emit(GameState.score)
 		else:
-			GameState.current_sector = 1
+			if title_ui and title_ui.has_method("selected_map_index"):
+				GameState.current_sector = title_ui.selected_map_index() + 1
+			else:
+				GameState.current_sector = 1
 			GameState.reset(true)
 			GameState.score = 0
 			GameState.score_changed.emit(0)
 		_build_level()
 	elif not GameState.game_started:
-		GameState.reset(false)
+		if title_ui and title_ui.has_method("selected_map_index"):
+			GameState.current_sector = title_ui.selected_map_index() + 1
+		GameState.reset(true)
+		_build_level()
 		var count := 0
 		for c in entities.get_children():
 			if c is Enemy:

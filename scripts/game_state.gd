@@ -68,7 +68,7 @@ func enemy_damage() -> int:
 func enemy_max_hp() -> int:
 	match difficulty:
 		Difficulty.EASY:
-			return 50
+			return 48
 		Difficulty.NORMAL:
 			return 65
 		_:
@@ -78,7 +78,7 @@ func enemy_max_hp() -> int:
 func enemy_attack_cooldown() -> float:
 	match difficulty:
 		Difficulty.EASY:
-			return 1.6
+			return 1.7
 		Difficulty.NORMAL:
 			return 1.25
 		_:
@@ -88,37 +88,47 @@ func enemy_attack_cooldown() -> float:
 func enemy_sight_range() -> float:
 	match difficulty:
 		Difficulty.EASY:
-			return 28.0
+			return 16.0
 		Difficulty.NORMAL:
-			return 36.0
+			return 22.0
 		_:
-			return 48.0
+			return 36.0
 
 
 func enemy_attack_range() -> float:
 	match difficulty:
 		Difficulty.EASY:
-			return 9.0
+			return 7.0
 		Difficulty.NORMAL:
-			return 11.0
+			return 9.0
 		_:
-			return 13.0
+			return 12.0
 
 
 func enemy_speed_scale() -> float:
 	match difficulty:
 		Difficulty.EASY:
-			return 0.9
+			return 0.82
 		Difficulty.NORMAL:
 			return 1.0
 		_:
 			return 1.12
 
 
+func hear_radius() -> float:
+	match difficulty:
+		Difficulty.EASY:
+			return 12.0
+		Difficulty.NORMAL:
+			return 16.0
+		_:
+			return 24.0
+
+
 func player_max_health() -> int:
 	match difficulty:
 		Difficulty.EASY:
-			return 130
+			return 150
 		Difficulty.NORMAL:
 			return 110
 		_:
@@ -128,7 +138,7 @@ func player_max_health() -> int:
 func player_start_reserve() -> int:
 	match difficulty:
 		Difficulty.EASY:
-			return 120
+			return 150
 		Difficulty.NORMAL:
 			return 100
 		_:

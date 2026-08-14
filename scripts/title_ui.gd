@@ -10,6 +10,10 @@ signal difficulty_changed
 
 var _diff_label: Label
 var _diff_row: HBoxContainer
+var _map_row: HBoxContainer
+var _map_label: Label
+var _map_names: Array[String] = []
+var _map_index: int = 0
 
 func _ready() -> void:
 	add_to_group("title_ui")
@@ -19,6 +23,7 @@ func _ready() -> void:
 		start_btn.pressed.connect(_on_start)
 		start_btn.mouse_filter = Control.MOUSE_FILTER_STOP
 	_build_difficulty_ui()
+	_build_map_ui()
 	if GameState:
 		GameState.difficulty_changed.connect(_on_diff_changed)
 	show_title()
@@ -68,6 +73,72 @@ func _build_difficulty_ui() -> void:
 	_refresh_diff_ui()
 
 
+func set_maps(names: Array) -> void:
+	_map_names.clear()
+	for n in names:
+		_map_names.append(String(n))
+	_map_index = clampi(_map_index, 0, maxi(0, _map_names.size() - 1))
+	_refresh_map_ui()
+
+
+func selected_map_index() -> int:
+	return _map_index
+
+
+func _build_map_ui() -> void:
+	var vbox := $Center/VBox as VBoxContainer
+	if vbox == null or start_btn == null:
+		return
+	_map_row = HBoxContainer.new()
+	_map_row.name = "MapRow"
+	_map_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_map_row.add_theme_constant_override("separation", 12)
+	var cap := Label.new()
+	cap.text = "Start map:"
+	cap.add_theme_font_size_override("font_size", 16)
+	cap.add_theme_color_override("font_color", Color(0.75, 0.8, 0.9))
+	_map_row.add_child(cap)
+	var prev := Button.new()
+	prev.text = "<"
+	prev.custom_minimum_size = Vector2(44, 36)
+	prev.pressed.connect(func(): _shift_map(-1))
+	_map_row.add_child(prev)
+	_map_label = Label.new()
+	_map_label.custom_minimum_size = Vector2(120, 0)
+	_map_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_map_label.add_theme_font_size_override("font_size", 20)
+	_map_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35))
+	_map_row.add_child(_map_label)
+	var nxt := Button.new()
+	nxt.text = ">"
+	nxt.custom_minimum_size = Vector2(44, 36)
+	nxt.pressed.connect(func(): _shift_map(1))
+	_map_row.add_child(nxt)
+	var idx := start_btn.get_index() + 1
+	if _diff_row:
+		idx = _diff_row.get_index()
+	vbox.add_child(_map_row)
+	vbox.move_child(_map_row, idx)
+	_refresh_map_ui()
+
+
+func _shift_map(delta: int) -> void:
+	if _map_names.is_empty():
+		return
+	_map_index = posmod(_map_index + delta, _map_names.size())
+	_refresh_map_ui()
+
+
+func _refresh_map_ui() -> void:
+	if _map_label == null:
+		return
+	if _map_names.is_empty():
+		_map_label.text = "E1M1"
+		return
+	_map_index = clampi(_map_index, 0, _map_names.size() - 1)
+	_map_label.text = _map_names[_map_index]
+
+
 func _select_difficulty(level: int) -> void:
 	if GameState:
 		GameState.set_difficulty(level as GameState.Difficulty)
@@ -86,11 +157,11 @@ func _refresh_diff_ui() -> void:
 	var hint := ""
 	match GameState.difficulty:
 		GameState.Difficulty.EASY:
-			hint = "~5 hostiles · forgiving damage · more HP/ammo"
+			hint = "fewer monsters, lighter hits, extra HP/ammo"
 		GameState.Difficulty.NORMAL:
-			hint = "~7 hostiles · balanced fight"
+			hint = "full mid-skill roster, balanced fight"
 		GameState.Difficulty.HARD:
-			hint = "~9 hostiles · tougher & faster"
+			hint = "UV roster, tougher and faster"
 	_diff_label.text = "Selected: %s — %s" % [name, hint]
 	# Highlight active button
 	if _diff_row:
@@ -118,7 +189,10 @@ func show_title() -> void:
 		_diff_row.visible = true
 	if _diff_label:
 		_diff_label.visible = true
+	if _map_row:
+		_map_row.visible = true
 	_refresh_diff_ui()
+	_refresh_map_ui()
 
 
 func show_paused() -> void:
@@ -136,6 +210,8 @@ func show_paused() -> void:
 		_diff_row.visible = false
 	if _diff_label:
 		_diff_label.visible = false
+	if _map_row:
+		_map_row.visible = false
 
 
 func show_dead() -> void:
@@ -151,7 +227,10 @@ func show_dead() -> void:
 		_diff_row.visible = true
 	if _diff_label:
 		_diff_label.visible = true
+	if _map_row:
+		_map_row.visible = true
 	_refresh_diff_ui()
+	_refresh_map_ui()
 
 
 func show_sector_clear(sector: int, max_sectors: int) -> void:
@@ -167,6 +246,8 @@ func show_sector_clear(sector: int, max_sectors: int) -> void:
 		_diff_row.visible = false
 	if _diff_label:
 		_diff_label.visible = false
+	if _map_row:
+		_map_row.visible = false
 
 
 func show_win() -> void:
@@ -182,7 +263,10 @@ func show_win() -> void:
 		_diff_row.visible = true
 	if _diff_label:
 		_diff_label.visible = true
+	if _map_row:
+		_map_row.visible = true
 	_refresh_diff_ui()
+	_refresh_map_ui()
 
 
 func _on_start() -> void:

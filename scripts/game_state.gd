@@ -142,11 +142,11 @@ func min_spawn_distance_cells() -> float:
 	## How far (in map cells) enemies must stay from player spawn
 	match difficulty:
 		Difficulty.EASY:
-			return 4.0
+			return 2.2
 		Difficulty.NORMAL:
-			return 3.5
+			return 2.0
 		_:
-			return 3.0
+			return 1.8
 
 
 func near_spawn_band() -> Vector2:

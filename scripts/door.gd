@@ -1,36 +1,64 @@
 extends Node3D
-## Sliding door (drops into floor like the three.js prototype).
+## Doom-style door: slab rises into the lintel when you walk up or press E.
 
 var horizontal: bool = true
 var slab: MeshInstance3D
 var body: AnimatableBody3D
-var state: String = "closed" # closed, opening, open, closing
+var state: String = "closed"
 var open_offset: float = 0.0
 var _auto_close_timer: float = 0.0
+var door_height: float = 3.2
 
 const OPEN_SPEED := 1.6
-const OPEN_HEIGHT := 3.0
+
+
+func _ready() -> void:
+	set_process(true)
+	if slab == null:
+		slab = get_node_or_null("Slab") as MeshInstance3D
+	if body == null:
+		body = get_node_or_null("DoorBody") as AnimatableBody3D
+	var area := Area3D.new()
+	area.name = "Trigger"
+	area.collision_layer = 0
+	area.collision_mask = 2
+	area.monitoring = true
+	var col := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(5.0, 2.6, 5.0)
+	col.shape = box
+	col.position = Vector3(0, 1.2, 0)
+	area.add_child(col)
+	add_child(area)
+	area.body_entered.connect(_on_body_entered)
+
+
+func _on_body_entered(n: Node) -> void:
+	if n != null and n.is_in_group("player"):
+		try_open()
+
 
 func try_open() -> bool:
+	if slab == null:
+		slab = get_node_or_null("Slab") as MeshInstance3D
+	if body == null:
+		body = get_node_or_null("DoorBody") as AnimatableBody3D
 	if state == "closed" or state == "closing":
 		state = "opening"
 		_play_door_sound()
 		return true
+	if state == "open":
+		_auto_close_timer = 6.0
 	return false
 
 
 func _process(delta: float) -> void:
-	# Auto-open when the player walks up so rooms stay gated but playable.
-	if state == "closed" or state == "closing":
-		var player := get_tree().get_first_node_in_group("player") as Node3D
-		if player and player.global_position.distance_to(global_position) < 3.4:
-			try_open()
 	if state == "opening":
 		open_offset = minf(1.0, open_offset + delta * OPEN_SPEED)
 		_apply_offset()
 		if open_offset >= 1.0:
 			state = "open"
-			_auto_close_timer = 4.0
+			_auto_close_timer = 6.0
 	elif state == "open":
 		_auto_close_timer -= delta
 		if _auto_close_timer <= 0.0:
@@ -43,13 +71,13 @@ func _process(delta: float) -> void:
 
 
 func _apply_offset() -> void:
-	var y := -open_offset * OPEN_HEIGHT
+	var y0 := door_height * 0.5 - 0.05
+	var y := y0 + open_offset * (door_height + 0.2)
 	if slab:
-		slab.position.y = (3.2 * 0.5 - 0.05) + y
+		slab.position.y = y
 	if body:
-		body.position.y = (3.2 * 0.5 - 0.05) + y
-		# Disable collision when mostly open
-		body.collision_layer = 0 if open_offset > 0.85 else 1
+		body.position.y = y
+		body.collision_layer = 0 if open_offset > 0.55 else 1
 
 
 func _play_door_sound() -> void:
@@ -64,13 +92,13 @@ func _play_door_sound() -> void:
 
 func _make_door_stream() -> AudioStreamWAV:
 	var sample_rate := 22050
-	var duration := 0.55
+	var duration := 0.45
 	var n := int(sample_rate * duration)
 	var data := PackedByteArray()
 	data.resize(n * 2)
 	for i in n:
 		var t := float(i) / sample_rate
-		var freq := lerpf(60.0, 140.0, t / duration)
+		var freq := lerpf(80.0, 170.0, t / duration)
 		var env := 1.0 - t / duration
 		var s := sin(TAU * freq * t) * env * 0.35
 		var v := int(clampf(s, -1.0, 1.0) * 32767.0)

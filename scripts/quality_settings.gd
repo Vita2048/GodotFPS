@@ -64,7 +64,7 @@ func _env(ssao: bool, glow: bool, ssil: bool, glow_intensity: float) -> void:
 	env.glow_intensity = glow_intensity
 	env.fog_enabled = true
 	# Cheaper fog on low
-	env.fog_density = 0.018 if level == Quality.LOW else 0.012
+	env.fog_density = 0.0035 if level == Quality.LOW else 0.0022
 
 
 func label() -> String:

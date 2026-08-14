@@ -47,25 +47,30 @@ func _on_difficulty_changed() -> void:
 
 func _setup_environment() -> void:
 	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.04, 0.05, 0.07)
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	# Strong ambient so dark character textures stay readable
-	env.ambient_light_color = Color(0.55, 0.58, 0.65)
-	env.ambient_light_energy = 1.15
+	env.background_mode = Environment.BG_SKY
+	var sky := Sky.new()
+	var sky_mat := PanoramaSkyMaterial.new()
+	if ResourceLoader.exists("res://assets/textures/mountains_sky.jpg"):
+		sky_mat.panorama = load("res://assets/textures/mountains_sky.jpg")
+	sky.sky_material = sky_mat
+	env.sky = sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_energy = 0.85
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.15
+	env.tonemap_exposure = 1.12
 	env.ssao_enabled = false
 	env.ssil_enabled = false
-	env.glow_enabled = false
+	env.glow_enabled = true
+	env.glow_intensity = 0.2
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.08, 0.09, 0.12)
-	env.fog_density = 0.008 # lighter fog so distant enemies stay visible
+	env.fog_light_color = Color(0.62, 0.68, 0.78)
+	env.fog_density = 0.0025
+	env.fog_aerial_perspective = 0.6
 	env.volumetric_fog_enabled = false
 	env.adjustment_enabled = true
-	env.adjustment_brightness = 1.08
-	env.adjustment_contrast = 1.05
-	env.adjustment_saturation = 1.05
+	env.adjustment_brightness = 1.06
+	env.adjustment_contrast = 1.04
+	env.adjustment_saturation = 1.08
 	if world_env:
 		world_env.environment = env
 
@@ -74,9 +79,9 @@ func _setup_environment() -> void:
 		sun = DirectionalLight3D.new()
 		sun.name = "FillSun"
 		add_child(sun)
-	sun.light_color = Color(0.85, 0.9, 1.0)
-	sun.light_energy = 0.55
-	sun.rotation_degrees = Vector3(-55, 35, 0)
+	sun.light_color = Color(1.0, 0.92, 0.78)
+	sun.light_energy = 1.15
+	sun.rotation_degrees = Vector3(-28, 130, 0)
 	sun.shadow_enabled = false
 
 

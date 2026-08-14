@@ -49,6 +49,7 @@ func _ready() -> void:
 	# SubViewport overlays were eating mouse events and could letterbox the game view.
 	camera.cull_mask = 1 | 2
 	camera.current = true
+	camera.far = 800.0
 	_set_viewmodel_no_depth_clip(_weapon)
 
 	# Soft flashlight so nearby enemies/textures stay lit

@@ -42,64 +42,67 @@ func _ready() -> void:
 		add_child(light)
 
 
+func _medkit_texture() -> ImageTexture:
+	var size := 256
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.97, 0.97, 0.99, 1.0))
+	var red := Color(0.86, 0.04, 0.07, 1.0)
+	var arm := 34
+	var half := size / 2
+	for y in size:
+		for x in size:
+			var dx := absi(x - half)
+			var dy := absi(y - half)
+			if (dx <= arm and dy <= 92) or (dy <= arm and dx <= 92):
+				img.set_pixel(x, y, red)
+	var tex := ImageTexture.create_from_image(img)
+	return tex
+
+
 func _build_medkit(root: Node3D) -> void:
-	var case_mat := StandardMaterial3D.new()
-	case_mat.albedo_color = Color(0.95, 0.96, 0.98)
-	case_mat.metallic = 0.05
-	case_mat.roughness = 0.42
+	var tex := _medkit_texture()
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1, 1, 1)
+	mat.albedo_texture = tex
+	mat.metallic = 0.0
+	mat.roughness = 0.45
+	mat.emission_enabled = true
+	mat.emission = Color(1, 1, 1)
+	mat.emission_texture = tex
+	mat.emission_energy_multiplier = 0.55
+	mat.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.uv1_scale = Vector3(1, 1, 1)
 
-	var red := StandardMaterial3D.new()
-	red.albedo_color = Color(0.82, 0.05, 0.08)
-	red.emission_enabled = true
-	red.emission = Color(1.0, 0.08, 0.08)
-	red.emission_energy_multiplier = 1.6
-	red.cull_mode = BaseMaterial3D.CULL_DISABLED
-
-	# White first-aid case, large faces on X/Z so the cross stays readable while it spins
+	# Cube so every spinning face shows the white pack + red cross
 	var body := MeshInstance3D.new()
 	var box := BoxMesh.new()
-	box.size = Vector3(0.38, 0.38, 0.16)
+	box.size = Vector3(0.46, 0.46, 0.46)
 	body.mesh = box
-	body.material_override = case_mat
+	body.material_override = mat
 	root.add_child(body)
 
-	# Red border
-	var rim := MeshInstance3D.new()
-	var rbox := BoxMesh.new()
-	rbox.size = Vector3(0.40, 0.40, 0.02)
-	rim.mesh = rbox
-	rim.position.z = 0.085
-	rim.material_override = red
-	root.add_child(rim)
-	var rim2 := rim.duplicate() as MeshInstance3D
-	rim2.position.z = -0.085
-	root.add_child(rim2)
-
-	# Classic red cross on both faces
-	for face in [0.095, -0.095]:
-		var bar_h := MeshInstance3D.new()
-		var hbox := BoxMesh.new()
-		hbox.size = Vector3(0.26, 0.08, 0.03)
-		bar_h.mesh = hbox
-		bar_h.position = Vector3(0, 0, face)
-		bar_h.material_override = red
-		root.add_child(bar_h)
-		var bar_v := MeshInstance3D.new()
-		var vbox := BoxMesh.new()
-		vbox.size = Vector3(0.08, 0.26, 0.03)
-		bar_v.mesh = vbox
-		bar_v.position = Vector3(0, 0, face)
-		bar_v.material_override = red
-		root.add_child(bar_v)
-
-	# Handle
-	var handle := MeshInstance3D.new()
-	var hh := BoxMesh.new()
-	hh.size = Vector3(0.14, 0.03, 0.05)
-	handle.mesh = hh
-	handle.position = Vector3(0, 0.22, 0)
-	handle.material_override = red
-	root.add_child(handle)
+	# Extra 3D cross standing off the +Z face (readable up close)
+	var red_mat := StandardMaterial3D.new()
+	red_mat.albedo_color = Color(0.86, 0.04, 0.07)
+	red_mat.emission_enabled = true
+	red_mat.emission = Color(1.0, 0.1, 0.1)
+	red_mat.emission_energy_multiplier = 1.4
+	var bar_h := MeshInstance3D.new()
+	var hbox := BoxMesh.new()
+	hbox.size = Vector3(0.32, 0.1, 0.04)
+	bar_h.mesh = hbox
+	bar_h.position = Vector3(0, 0, 0.25)
+	bar_h.material_override = red_mat
+	root.add_child(bar_h)
+	var bar_v := MeshInstance3D.new()
+	var vbox := BoxMesh.new()
+	vbox.size = Vector3(0.1, 0.32, 0.04)
+	bar_v.mesh = vbox
+	bar_v.position = Vector3(0, 0, 0.25)
+	bar_v.material_override = red_mat
+	root.add_child(bar_v)
 
 
 func _build_ammo_crate(root: Node3D) -> void:

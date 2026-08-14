@@ -8,7 +8,7 @@ signal quality_changed(level: Quality)
 var level: Quality = Quality.LOW
 
 func _ready() -> void:
-	apply(Quality.MEDIUM)
+	apply(Quality.LOW)
 
 
 func _input(event: InputEvent) -> void:
@@ -26,12 +26,12 @@ func apply(q: Quality) -> void:
 
 	match q:
 		Quality.LOW:
-			vp.scaling_3d_scale = 0.65
+			vp.scaling_3d_scale = 0.7
 			vp.msaa_3d = Viewport.MSAA_DISABLED
 			vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 			vp.use_debanding = false
 			_env(false, false, false, 0.0)
-			RenderingServer.directional_shadow_atlas_set_size(1024, true)
+			RenderingServer.directional_shadow_atlas_set_size(512, true)
 		Quality.MEDIUM:
 			vp.scaling_3d_scale = 0.85
 			vp.msaa_3d = Viewport.MSAA_2X

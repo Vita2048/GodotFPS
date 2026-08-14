@@ -110,6 +110,7 @@ func load_map(map_name: String) -> bool:
 		return false
 	map_node = created as Node3D
 	_fix_trigger_areas(map_node)
+	_quiet_platform_audio(map_node)
 	_extract_things(map_name)
 	_snap_spawns_to_floor()
 	_ensure_ammo_pickups()
@@ -141,6 +142,22 @@ func _fix_trigger_areas(root: Node) -> void:
 		var area := n as Area3D
 		area.collision_mask |= 1 | 2
 		area.monitoring = true
+
+
+func _quiet_platform_audio(root: Node) -> void:
+	if root == null:
+		return
+	for n in root.find_children("*", "AudioStreamPlayer3D", true, false):
+		var p := n as AudioStreamPlayer3D
+		var key := (String(p.name) + " " + (p.stream.resource_name if p.stream else "")).to_upper()
+		if "STNMOV" in key or "PSTART" in key or "PSTOP" in key or p.name in ["openSound", "closeSound"]:
+			# Lifts reuse openSound/closeSound; keep doors a bit louder.
+			var parent_script := ""
+			if p.get_parent() and p.get_parent().get_script():
+				parent_script = String(p.get_parent().get_script().resource_path)
+			if "lift" in parent_script or "floor" in parent_script or "STNMOV" in key or "PSTART" in key:
+				p.volume_db = minf(p.volume_db, -22.0)
+				p.max_distance = 20.0
 
 
 func _extract_things(map_name: String) -> void:

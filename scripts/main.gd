@@ -15,7 +15,7 @@ func _ready() -> void:
 	_setup_environment()
 	# Apply Low quality after env exists (also runs from autoload, this refreshes env refs)
 	if QualitySettings:
-		QualitySettings.apply(QualitySettings.Quality.MEDIUM)
+		QualitySettings.apply(QualitySettings.Quality.LOW)
 	if GameState:
 		GameState.set_difficulty(GameState.Difficulty.EASY)
 	if title_ui:
@@ -65,19 +65,16 @@ func _setup_environment() -> void:
 	sky.sky_material = sky_mat
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 1.05
+	env.ambient_light_energy = 0.95
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.18
-	env.ssao_enabled = true
-	env.ssao_radius = 1.4
-	env.ssao_intensity = 1.6
+	env.tonemap_exposure = 1.08
+	env.ssao_enabled = false
 	env.ssil_enabled = false
-	env.glow_enabled = true
-	env.glow_intensity = 0.32
+	env.glow_enabled = false
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.55, 0.58, 0.62)
-	env.fog_density = 0.0014
-	env.fog_aerial_perspective = 0.35
+	env.fog_light_color = Color(0.5, 0.52, 0.56)
+	env.fog_density = 0.0018
+	env.fog_aerial_perspective = 0.25
 	env.volumetric_fog_enabled = false
 	env.adjustment_enabled = true
 	env.adjustment_brightness = 1.06
@@ -92,7 +89,7 @@ func _setup_environment() -> void:
 		sun.name = "FillSun"
 		add_child(sun)
 	sun.light_color = Color(1.0, 0.92, 0.78)
-	sun.light_energy = 1.55
+	sun.light_energy = 1.05
 	sun.rotation_degrees = Vector3(-28, 130, 0)
 	sun.shadow_enabled = false
 

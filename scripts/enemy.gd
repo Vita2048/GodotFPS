@@ -516,19 +516,11 @@ func _import_external_anims() -> void:
 			else:
 				copied.loop_mode = Animation.LOOP_LINEAR
 			_retarget_mixamo_tracks(copied, skeleton)
-			# Keep hip Y on death so the body actually drops to the floor.
-			# Locomotion stays in-place (root XZ/Y stripped).
-			if key == "die":
-				_keep_death_hip_drop(copied)
-			else:
-				_strip_root_motion(copied)
-			# Only convert cm Mixamo keys onto a meter-scale body. Dying.glb (and
-			# some FBX) already import in meters — scaling those by 0.01 plants
-			# standing hips at ~1cm and the torso sinks to the waist.
+			# In-place clips. Death fall is applied as a model-root ease so
+			# hip-unit mismatches cannot bury the torso mid-anim.
+			_strip_root_motion(copied)
 			if _skeleton_is_meters(skeleton) and _clip_positions_are_cm(copied):
 				_scale_position_tracks(copied, 0.01)
-			if key == "die":
-				_rebias_death_hips(copied, skeleton)
 			var safe_name := "%s__%s" % [key, String(anim_name).get_file().replace("|", "_").replace(" ", "_")]
 			if target_lib.has_animation(safe_name):
 				target_lib.remove_animation(safe_name)
@@ -720,7 +712,7 @@ func _play(anim_name: String, speed: float = 1.0) -> void:
 
 func _physics_process(delta: float) -> void:
 	if state == State.DEAD:
-		_update_death_drop()
+		_update_death_fall()
 		return
 	# Freeze combat while pause / menus are up
 	if GameState == null or GameState.paused or not GameState.game_started or GameState.player_dead:
@@ -1146,87 +1138,146 @@ func _die() -> void:
 	velocity = Vector3.ZERO
 	collision_layer = 0
 	collision_mask = 0
-	_restore_materials() # keep original textures during death animation
+	_corpse_settled = false
+	_restore_materials()
 	GameState.add_score(100)
 	GameState.unregister_enemy()
-	_prepare_death_drop()
-	_play(anim_die if anim_die != "" else "")
 	SFX.play_3d(get_parent(), "hit", global_position, -6.0)
-	if _anim and not _anim.animation_finished.is_connected(_on_death_anim_finished):
-		_anim.animation_finished.connect(_on_death_anim_finished)
-	var delay := 2.8
-	if _anim and anim_die != "" and _anim.has_animation(anim_die):
-		delay = _anim.get_animation(anim_die).length + 0.05
-	get_tree().create_timer(delay).timeout.connect(_settle_corpse)
+	_begin_death_fall()
 
 
-func _prepare_death_drop() -> void:
-	## Sample this skeleton's last death pose and see how far it still is from
-	## the floor. That offset is eased in during playback so every mesh lands,
-	## regardless of Mixamo units or rest-pose hip height.
+func _begin_death_fall() -> void:
 	_death_drop = 0.0
-	_corpse_settled = false
-	if _model_root == null:
-		return
-	_death_base_model_y = _model_root.position.y
+	_death_base_model_y = _model_root.position.y if _model_root else 0.0
+	_death_len = 2.0
 	if _anim == null or anim_die == "" or not _anim.has_animation(anim_die):
+		_freeze_corpse()
 		return
 	var clip := _anim.get_animation(anim_die)
-	_death_len = maxf(clip.length, 0.01)
+	_death_len = maxf(clip.length, 0.05)
+	# Measure the last lying pose, then start from frame 0 so we can ease down.
 	_anim.play(anim_die)
 	_anim.seek(_death_len, true)
-	var end_min := _lowest_bone_world_y()
+	var end_min := _lowest_major_bone_y()
+	var floor_y := global_position.y
+	if is_inside_tree():
+		var probed: float = DoomLevel.find_walkable_y(
+			get_world_3d().direct_space_state,
+			global_position,
+			global_position.y + 1.0,
+			global_position.y - 4.0,
+			[self]
+		)
+		if not is_nan(probed):
+			floor_y = probed
+	# Aim hips at a lying height; do not target hands/feet or legs bury mid-crumple.
+	var hip_y := _bone_world_y(["hip", "hips", "pelvis"])
+	var ref_y := hip_y if hip_y < INF else end_min
+	if ref_y < INF:
+		_death_drop = clampf((floor_y + 0.20) - ref_y, -0.38, 0.0)
 	_anim.seek(0.0, true)
-	if end_min < INF:
-		_death_drop = 0.02 - end_min
+	_anim.play(anim_die, 0.05, 1.0)
+	if not _anim.animation_finished.is_connected(_on_death_anim_finished):
+		_anim.animation_finished.connect(_on_death_anim_finished)
+	get_tree().create_timer(_death_len + 0.08).timeout.connect(_freeze_corpse)
 
 
-func _update_death_drop() -> void:
+func _update_death_fall() -> void:
 	if _corpse_settled or _model_root == null:
 		return
 	var t := 1.0
 	if _anim and _death_len > 0.0:
 		t = clampf(_anim.current_animation_position / _death_len, 0.0, 1.0)
+	# Fall happens in the first half of the clip (matches Mixamo crumple).
 	var w := t * t * (3.0 - 2.0 * t)
 	_model_root.position.y = _death_base_model_y + _death_drop * w
+	# Keep soles at/above the floor while the torso comes down.
+	_keep_feet_above_floor()
 	if t >= 0.999:
-		_settle_corpse()
+		_freeze_corpse()
 
 
-func _lowest_bone_world_y() -> float:
+func _on_death_anim_finished(anim_name: StringName) -> void:
+	if state != State.DEAD:
+		return
+	var n := String(anim_name)
+	if anim_die != "" and n != anim_die and not ("die" in n.to_lower()):
+		return
+	_freeze_corpse()
+
+
+func _freeze_corpse() -> void:
+	if not is_instance_valid(self) or state != State.DEAD or _corpse_settled:
+		return
+	_corpse_settled = true
+	if _anim != null:
+		if anim_die != "" and _anim.has_animation(anim_die):
+			var clip := _anim.get_animation(anim_die)
+			_anim.play(anim_die)
+			_anim.seek(clip.length, true)
+		_anim.pause()
+	if _model_root:
+		_model_root.position.y = _death_base_model_y + _death_drop
+	_keep_feet_above_floor()
+	visible = true
+
+
+func _keep_feet_above_floor() -> void:
+	if _model_root == null or not is_inside_tree():
+		return
+	var floor_y := global_position.y
+	var probed: float = DoomLevel.find_walkable_y(
+		get_world_3d().direct_space_state,
+		global_position,
+		global_position.y + 0.8,
+		global_position.y - 3.0,
+		[self]
+	)
+	if not is_nan(probed):
+		floor_y = probed
+	var feet_y := _bone_world_y(["foot", "toe", "ankle"])
+	if feet_y >= INF:
+		feet_y = _lowest_major_bone_y()
+	if feet_y < INF and feet_y < floor_y + 0.02:
+		_model_root.global_position.y += (floor_y + 0.02) - feet_y
+
+
+func _bone_world_y(needles: Array) -> float:
 	var skeleton := _find_skeleton(_model_root)
 	if skeleton == null:
 		return INF
 	skeleton.force_update_all_bone_transforms()
 	var min_y := INF
 	for i in skeleton.get_bone_count():
-		var local := skeleton.get_bone_global_pose(i).origin
-		var world := skeleton.global_transform * local
+		var bn := skeleton.get_bone_name(i).to_lower().replace(":", "").replace("_", "")
+		var hit := false
+		for n in needles:
+			if String(n) in bn:
+				hit = true
+				break
+		if not hit:
+			continue
+		var world := skeleton.global_transform * skeleton.get_bone_global_pose(i).origin
 		if world.y < min_y:
 			min_y = world.y
 	return min_y
 
 
-func _on_death_anim_finished(anim_name: StringName) -> void:
-	if state != State.DEAD:
-		return
-	if anim_die != "" and String(anim_name) != anim_die and not String(anim_name).contains("die"):
-		return
-	_settle_corpse()
-
-
-func _settle_corpse() -> void:
-	if not is_instance_valid(self) or state != State.DEAD:
-		return
-	if _anim:
-		if anim_die != "" and _anim.has_animation(anim_die):
-			_anim.play(anim_die)
-			_anim.seek(_anim.get_animation(anim_die).length, true)
-		_anim.pause()
-	var min_y := _lowest_bone_world_y()
-	if min_y < INF:
-		_model_root.global_position.y += 0.02 - min_y
-	_corpse_settled = true
+func _lowest_major_bone_y() -> float:
+	var skeleton := _find_skeleton(_model_root)
+	if skeleton == null:
+		return INF
+	skeleton.force_update_all_bone_transforms()
+	var min_y := INF
+	for i in skeleton.get_bone_count():
+		var bn := skeleton.get_bone_name(i).to_lower()
+		if not ("hip" in bn or "spine" in bn or "head" in bn or "foot" in bn
+				or "hand" in bn or "leg" in bn or "arm" in bn or "neck" in bn):
+			continue
+		var world := skeleton.global_transform * skeleton.get_bone_global_pose(i).origin
+		if world.y < min_y:
+			min_y = world.y
+	return min_y
 
 
 func _set_layers(node: Node, layer: int) -> void:

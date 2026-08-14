@@ -1773,7 +1773,14 @@ func createAudioPlayback(soundName,loop=false):
 	var audioStream =   resourceManager.fetchSound(soundName)
 	var audioPlay = AudioStreamPlayer3D.new()
 	audioPlay.stream = audioStream
-	
+	var n := String(soundName).to_upper()
+	# Platform / lift loops are authored very hot.
+	if "STNMOV" in n or "PSTART" in n or "PSTOP" in n:
+		audioPlay.volume_db = -22.0
+	else:
+		audioPlay.volume_db = -10.0
+	audioPlay.max_distance = 22.0
+	audioPlay.unit_size = 3.0
 	return audioPlay
 	
 

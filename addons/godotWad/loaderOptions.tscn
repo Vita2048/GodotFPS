@@ -1,0 +1,155 @@
+[gd_scene load_steps=2 format=3 uid="uid://jhuhh4ptgbht"]
+
+[ext_resource type="Script" path="res://addons/godotWad/loaderOptions.gd" id="1"]
+
+[node name="loaderOptions" type="MarginContainer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1")
+
+[node name="v" type="VBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="h" type="HBoxContainer" parent="v"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="v/h"]
+layout_mode = 2
+text = "Textue filtering"
+
+[node name="tetureFiltering" type="CheckBox" parent="v/h"]
+layout_mode = 2
+
+[node name="scaleFactor" type="HBoxContainer" parent="v"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="v/scaleFactor"]
+layout_mode = 2
+text = "Scale factor "
+
+[node name="x" type="SpinBox" parent="v/scaleFactor"]
+layout_mode = 2
+step = 0.001
+value = 0.031
+
+[node name="Label2" type="Label" parent="v/scaleFactor"]
+layout_mode = 2
+text = "y"
+
+[node name="y" type="SpinBox" parent="v/scaleFactor"]
+layout_mode = 2
+step = 0.001
+value = 0.038
+
+[node name="Label3" type="Label" parent="v/scaleFactor"]
+layout_mode = 2
+text = "z"
+
+[node name="z" type="SpinBox" parent="v/scaleFactor"]
+layout_mode = 2
+step = 0.001
+value = 0.031
+
+[node name="difficulty" type="HBoxContainer" parent="v"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="v/difficulty"]
+layout_mode = 2
+text = "Difficulty"
+
+[node name="difficultyOption" type="OptionButton" parent="v/difficulty"]
+layout_mode = 2
+item_count = 4
+popup/item_0/text = "None"
+popup/item_0/id = 0
+popup/item_1/text = "Easy"
+popup/item_1/id = 1
+popup/item_2/text = "Medium"
+popup/item_2/id = 2
+popup/item_3/text = "Hard"
+popup/item_3/id = 3
+
+[node name="Create occluder" type="HBoxContainer" parent="v"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="v/Create occluder"]
+layout_mode = 2
+text = "Create Occluders"
+
+[node name="createOccluder" type="CheckBox" parent="v/Create occluder"]
+layout_mode = 2
+button_pressed = true
+
+[node name="simplify meshes" type="HBoxContainer" parent="v"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="v/simplify meshes"]
+layout_mode = 2
+text = "Simplify Meshes"
+
+[node name="simplifyMeshes" type="CheckBox" parent="v/simplify meshes"]
+layout_mode = 2
+button_pressed = true
+
+[node name="Merge Mesh" type="HBoxContainer" parent="v"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="v/Merge Mesh"]
+layout_mode = 2
+text = "Merge Mesh"
+
+[node name="mergeMeshOption" type="OptionButton" parent="v/Merge Mesh"]
+layout_mode = 2
+item_count = 3
+popup/item_0/text = "Disabled"
+popup/item_0/id = 0
+popup/item_1/text = "Walls"
+popup/item_1/id = 1
+popup/item_2/text = "Walls and Floor"
+popup/item_2/id = 2
+
+[node name="Surround Skybox" type="HBoxContainer" parent="v"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="v/Surround Skybox"]
+layout_mode = 2
+text = "Generate Surrounding Skybox: "
+
+[node name="surroundingSkybox" type="CheckBox" parent="v/Surround Skybox"]
+unique_name_in_owner = true
+layout_mode = 2
+button_pressed = true
+
+[node name="HBoxContainer" type="HBoxContainer" parent="v"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="v/HBoxContainer"]
+layout_mode = 2
+text = "Sky Surfaces:"
+
+[node name="skySurfaceOptions" type="OptionButton" parent="v/HBoxContainer"]
+layout_mode = 2
+item_count = 4
+popup/item_0/text = "Disabled"
+popup/item_0/id = 0
+popup/item_1/text = "Walls"
+popup/item_1/id = 1
+popup/item_2/text = "Ceilings"
+popup/item_2/id = 2
+popup/item_3/text = "Ceilings and Walls"
+popup/item_3/id = 3
+
+[connection signal="toggled" from="v/h/tetureFiltering" to="." method="_on_tetureFiltering_toggled"]
+[connection signal="changed" from="v/scaleFactor/x" to="." method="scaleChanged"]
+[connection signal="value_changed" from="v/scaleFactor/x" to="." method="scaleChangedValue"]
+[connection signal="changed" from="v/scaleFactor/y" to="." method="scaleChanged"]
+[connection signal="value_changed" from="v/scaleFactor/y" to="." method="scaleChangedValue"]
+[connection signal="changed" from="v/scaleFactor/z" to="." method="scaleChanged"]
+[connection signal="value_changed" from="v/scaleFactor/z" to="." method="scaleChangedValue"]
+[connection signal="item_selected" from="v/difficulty/difficultyOption" to="." method="_on_difficultyOption_item_selected"]
+[connection signal="toggled" from="v/Create occluder/createOccluder" to="." method="_on_createOccluder_toggled"]
+[connection signal="toggled" from="v/simplify meshes/simplifyMeshes" to="." method="_on_simplify_meshes_toggled"]
+[connection signal="item_selected" from="v/Merge Mesh/mergeMeshOption" to="." method="_on_mergeMeshOption_item_selected"]
+[connection signal="toggled" from="v/Surround Skybox/surroundingSkybox" to="." method="_on_surroundingSkybox_toggled"]
+[connection signal="item_selected" from="v/HBoxContainer/skySurfaceOptions" to="." method="_on_skySurfaceOptions_item_selected"]

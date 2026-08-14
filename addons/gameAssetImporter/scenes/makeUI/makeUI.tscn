@@ -1,0 +1,56 @@
+[gd_scene load_steps=4 format=3 uid="uid://dv8lfeokrqwgj"]
+
+[ext_resource type="Script" path="res://addons/gameAssetImporter/scenes/makeUI/makeUI.gd" id="2"]
+[ext_resource type="PackedScene" uid="uid://bjp3rmwhull4g" path="res://addons/gameAssetImporter/scenes/makeUI/subMakeUI.tscn" id="2_fbjal"]
+
+[sub_resource type="ImageTexture" id="ImageTexture_6hrda"]
+
+[node name="makeUI" type="Window"]
+position = Vector2i(0, 36)
+size = Vector2i(1145, 600)
+content_scale_mode = 2
+script = ExtResource("2")
+
+[node name="Panel" type="Panel" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="h" parent="." instance=ExtResource("2_fbjal")]
+
+[node name="LoaderOptions" parent="h/v1/paths/v/VBoxContainer" index="0"]
+visible = false
+
+[node name="gameNameEdit" parent="h/v1/paths/v/h" index="1"]
+text = "doom"
+
+[node name="playButton" parent="h/v1/paths/v/HBoxContainer" index="1"]
+visible = false
+focus_neighbor_bottom = NodePath("../../../../Panel/gameList")
+
+[node name="SubViewport" parent="h/v3/preview/SubViewportContainer" index="0"]
+size = Vector2i(372, 298)
+
+[node name="texturePreview" parent="h/v3/preview" index="1"]
+texture = SubResource("ImageTexture_6hrda")
+
+[node name="pathTxt" parent="h/v3/preview/sondFontPath/h" index="1"]
+text = "res://addons/godotWad/soundfonts/gzdoom.sf2"
+
+[node name="Button2" parent="h/v3/preview/sondFontPath/h" index="4"]
+visible = true
+
+[connection signal="close_requested" from="." to="." method="_on_close_requested"]
+[connection signal="item_selected" from="h/v1/Panel/gameList" to="." method="_on_gameList_item_selected"]
+[connection signal="pressed" from="h/v1/paths/v/VBoxContainer/LoaderOptions" to="." method="_on_loader_options_pressed"]
+[connection signal="pressed" from="h/v1/paths/v/HBoxContainer/loadButton" to="." method="_on_loadButton_pressed"]
+[connection signal="pressed" from="h/v1/paths/v/HBoxContainer/playButton" to="." method="_on_playButton_pressed"]
+[connection signal="pressed" from="h/v1/paths/v/HBoxContainer/debugButton" to="." method="_on_debugButton_pressed"]
+[connection signal="pressed" from="h/v1/paths/v/HBoxContainer/creditsButton" to="." method="_on_credits_button_pressed"]
+[connection signal="pressed" from="h/v2/ui/instanceButton" to="." method="_on_instanceButton_pressed"]
+[connection signal="pressed" from="h/v2/ui/importButton" to="." method="_on_importButton_pressed"]
+
+[editable path="h"]
+[editable path="h/v3/preview/sondFontPath"]

@@ -1,0 +1,30 @@
+[gd_scene load_steps=5 format=3 uid="uid://c08y73axi8jvb"]
+
+[ext_resource type="Script" path="res://addons/godotWad/src/thingScripts/collectable.gd" id="1"]
+[ext_resource type="Script" path="res://addons/godotWad/scenes/dropper.gd" id="2_m4erd"]
+
+[sub_resource type="BoxShape3D" id="2"]
+size = Vector3(2, 0.940716, 1.1485)
+
+[sub_resource type="QuadMesh" id="QuadMesh_bmnlw"]
+
+[node name="collectible" type="Node3D"]
+process_priority = -1
+script = ExtResource("1")
+oscillationHeight = null
+oscillationSpeed = null
+
+[node name="Area3D" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.349, 0)
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.175, 0)
+shape = SubResource("2")
+
+[node name="groundCast" type="RayCast3D" parent="."]
+enabled = false
+script = ExtResource("2_m4erd")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("QuadMesh_bmnlw")

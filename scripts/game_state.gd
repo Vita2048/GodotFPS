@@ -24,19 +24,16 @@ var player_dead: bool = false
 var game_started: bool = false
 ## True while pause / title / sector menu is up — combat and AI must idle.
 var paused: bool = false
-## Campaign: two larger sectors
+## Campaign: Doom WAD map index (1-based)
 var current_sector: int = 1
-var max_sectors: int = 2
+var max_sectors: int = 9
+var current_map_name: String = "E1M1"
 
 
 func sector_name() -> String:
-	match current_sector:
-		1:
-			return "SECTOR ALPHA"
-		2:
-			return "SECTOR BETA"
-		_:
-			return "SECTOR %d" % current_sector
+	if current_map_name != "":
+		return current_map_name
+	return "MAP %d" % current_sector
 
 
 func advance_sector() -> void:

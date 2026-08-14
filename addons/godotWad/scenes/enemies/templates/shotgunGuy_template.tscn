@@ -1,0 +1,51 @@
+[gd_scene load_steps=5 format=3 uid="uid://bgjg3mg6afa2"]
+
+[ext_resource type="Resource" uid="uid://cpwt0pf1d3w22" path="res://addons/godotWad/scenes/enemies/templates/sprites/shotgunGuySprites.tres" id="1"]
+[ext_resource type="PackedScene" uid="uid://dhxyaai4rce5r" path="res://addons/godotWad/scenes/enemies/npc_template.tscn" id="2"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_wp37a"]
+
+[sub_resource type="BoxShape3D" id="9"]
+size = Vector3(40, 56, 40)
+
+[node name="ShotgunGuy" instance=ExtResource("2")]
+npcName = "shotgun guy"
+height = 56.0
+meleeRange = -1.0
+drops = Array[String](["shotgun pickup"])
+stateDataPath = "res://addons/godotWad/resources/monsterStates/sargeantState.tres"
+painStateId = 13
+deadStateId = 15
+gibStateId = 20
+painChance = 0.676
+
+[node name="AnimatedSprite3D" parent="." index="0"]
+mesh = SubResource("QuadMesh_wp37a")
+
+[node name="CollisionShape3D" parent="." index="3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 28, 0)
+shape = SubResource("9")
+
+[node name="cast" parent="." index="4"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 44.8, 0)
+debug_shape_custom_color = Color(1, 0, 0, 1)
+debug_shape_thickness = 5
+
+[node name="castWeapon" parent="." index="6"]
+spread = 600
+
+[node name="Generator" parent="." index="7"]
+sprites = ExtResource("1")
+idle = "AB"
+chase = "ABCD"
+attack = "EFE"
+hurt = "G"
+dying = "HIJKL"
+gib = "MNOPQRSTU"
+attackSounds = ["DSSHOTGN"]
+searchSounds = Array[StringName]([&"DSPOSACT"])
+
+[node name="VisibleOnScreenNotifier3D" parent="." index="8"]
+aabb = AABB(-20, 0, -20, 40, 56, 40)
+
+[editable path="AnimatedSprite3D"]

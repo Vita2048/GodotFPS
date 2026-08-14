@@ -1,0 +1,48 @@
+[gd_scene load_steps=5 format=3 uid="uid://c35gqbbiajxe4"]
+
+[ext_resource type="PackedScene" uid="uid://dhxyaai4rce5r" path="res://addons/godotWad/scenes/enemies/npc_template.tscn" id="1"]
+[ext_resource type="Resource" uid="uid://clew7l27irttb" path="res://addons/godotWad/scenes/enemies/templates/sprites/zombiemanSprites.tres" id="2"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_vbh2c"]
+
+[sub_resource type="BoxShape3D" id="9"]
+size = Vector3(40, 56, 40)
+
+[node name="zombieman" instance=ExtResource("1")]
+initialHP = 20.0
+npcName = "zombieman"
+height = 56.0
+drops = Array[String](["clip"])
+stateDataPath = "res://addons/godotWad/resources/monsterStates/zombiemanState.tres"
+painStateId = 13
+deadStateId = 15
+gibStateId = 20
+reviveStateId = 29
+
+[node name="AnimatedSprite3D" parent="visual" index="0"]
+mesh = SubResource("QuadMesh_vbh2c")
+
+[node name="CollisionShape3D" parent="." index="3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 28, 0)
+shape = SubResource("9")
+
+[node name="castWeapon" parent="." index="5"]
+spread = 600
+
+[node name="Generator" parent="." index="6"]
+sprites = ExtResource("2")
+idle = "AB"
+chase = "ABCD"
+attack = "EFE"
+hurt = "G"
+dying = "HIJKL"
+gib = "MNOPQRSTU"
+searchSounds = Array[StringName]([&"DSPOSACT"])
+
+[node name="VisibleOnScreenNotifier3D" parent="." index="7"]
+aabb = AABB(-1, 0, -1, 2, 56, 2)
+
+[node name="cast" parent="." index="9"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 44.8, 0)
+
+[editable path="visual/AnimatedSprite3D"]

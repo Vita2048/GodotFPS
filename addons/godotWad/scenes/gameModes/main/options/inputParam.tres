@@ -1,0 +1,296 @@
+[gd_resource type="Resource" script_class="gsheet" load_steps=2 format=3 uid="uid://rcjqw7sak4ah"]
+
+[ext_resource type="Script" path="res://addons/gSheet/scenes/gsheet.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+data = {
+"backward": {
+"allowMultipleBinds": "",
+"category": "movement",
+"controller": "AXIS1-",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "",
+"hidden": "",
+"key": "KEY_S"
+},
+"forward": {
+"allowMultipleBinds": "",
+"category": "movement",
+"controller": "AXIS1+",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "",
+"hidden": "",
+"key": "KEY_W"
+},
+"interact": {
+"allowMultipleBinds": "",
+"category": "",
+"controller": "GAMEPAD2",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "",
+"hidden": "",
+"key": "KEY_F"
+},
+"jump": {
+"allowMultipleBinds": "",
+"category": "movement",
+"controller": "JOY_BUTTON_A",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "",
+"hidden": "",
+"key": "KEY_SPACE"
+},
+"lookDown": {
+"allowMultipleBinds": "",
+"category": "camera",
+"controller": "AXIS3-",
+"controllerOnly": true,
+"disallowM1": "",
+"displayName": "",
+"hidden": "",
+"key": ""
+},
+"lookLeft": {
+"allowMultipleBinds": "",
+"category": "camera",
+"controller": "AXIS2+",
+"controllerOnly": true,
+"disallowM1": "",
+"displayName": "",
+"hidden": "",
+"key": ""
+},
+"lookRight": {
+"allowMultipleBinds": "",
+"category": "camera",
+"controller": "AXIS2-",
+"controllerOnly": true,
+"disallowM1": "",
+"displayName": "",
+"hidden": "",
+"key": ""
+},
+"lookUp": {
+"allowMultipleBinds": "",
+"category": "camera",
+"controller": "AXIS3+",
+"controllerOnly": true,
+"disallowM1": "",
+"displayName": "",
+"hidden": "",
+"key": ""
+},
+"menuBack": {
+"allowMultipleBinds": true,
+"category": "menus",
+"controller": "JOY_BUTTON_B",
+"controllerOnly": "",
+"disallowM1": true,
+"displayName": "Close Menu",
+"hidden": "",
+"key": ""
+},
+"menuTabLeft": {
+"allowMultipleBinds": true,
+"category": "menus",
+"controller": "JOY_BUTTON_LEFT_SHOULDER",
+"controllerOnly": "",
+"disallowM1": true,
+"displayName": "Menu Tab Left",
+"hidden": "",
+"key": ""
+},
+"menuTabRight": {
+"allowMultipleBinds": true,
+"category": "menus",
+"controller": "JOY_BUTTON_RIGHT_SHOULDER",
+"controllerOnly": "",
+"disallowM1": true,
+"displayName": "Menu Tab Right",
+"hidden": "",
+"key": ""
+},
+"meta": {
+"colNames": ["key", "controller", "controllerOnly", "displayName", "category", "hidden", "allowMultipleBinds", "disallowM1"],
+"enumColumns": {},
+"enumColumnsPrefix": {},
+"hasId": false,
+"rowOrder": ["forward", "backward", "strafeLeft", "strafeRight", "jump", "interact", "shoot", "openMenu", "lookUp", "lookDown", "lookLeft", "lookRight", "weaponSwitchCategory+", "weaponSwitchCategory-", "quickSave", "quickLoad", "weaponSwitchCategory1", "weaponSwitchCategory2", "weaponSwitchCategory3", "weaponSwitchCategory4", "weaponSwitchCategory5", "weaponSwitchCategory6", "weaponSwitchCategory7", "ui_accept", "menuBack", "menuTabLeft", "menuTabRight"],
+"sheetWidth": 2932.0,
+"splitSize": {
+0: 205,
+1: 228,
+2: 126,
+3: 198,
+4: 137,
+5: 0,
+6: 948,
+7: 0
+}
+},
+"openMenu": {
+"allowMultipleBinds": "",
+"category": "menus",
+"controller": "JOY_BUTTON_START",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "Open Menu",
+"hidden": "",
+"key": "KEY_ESCAPE"
+},
+"quickLoad": {
+"allowMultipleBinds": "",
+"category": "",
+"controller": "",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "",
+"hidden": "",
+"key": "KEY_F4"
+},
+"quickSave": {
+"allowMultipleBinds": "",
+"category": "",
+"controller": "",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "",
+"hidden": "",
+"key": "KEY_F3"
+},
+"shoot": {
+"allowMultipleBinds": "",
+"category": "",
+"controller": "AXIS5-",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "",
+"hidden": "",
+"key": "MOUSE1"
+},
+"strafeLeft": {
+"allowMultipleBinds": "",
+"category": "movement",
+"controller": "AXIS0+",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "",
+"hidden": "",
+"key": "KEY_A"
+},
+"strafeRight": {
+"allowMultipleBinds": "",
+"category": "movement",
+"controller": "AXIS0-",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "",
+"hidden": "",
+"key": "KEY_D"
+},
+"ui_accept": {
+"allowMultipleBinds": true,
+"category": "menus",
+"controller": "JOY_BUTTON_A",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "Select Opption",
+"hidden": "",
+"key": ""
+},
+"weaponSwitchCategory+": {
+"allowMultipleBinds": "",
+"category": "",
+"controller": "JOY_BUTTON_RIGHT_SHOULDER",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "",
+"hidden": "",
+"key": "MOUSE_BUTTON_WHEEL_UP"
+},
+"weaponSwitchCategory-": {
+"allowMultipleBinds": "",
+"category": "",
+"controller": "JOY_BUTTON_LEFT_SHOULDER",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "",
+"hidden": "",
+"key": ""
+},
+"weaponSwitchCategory1": {
+"allowMultipleBinds": "",
+"category": "weapons",
+"controller": "",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "Weapon Category 1",
+"hidden": "",
+"key": "KEY_1"
+},
+"weaponSwitchCategory2": {
+"allowMultipleBinds": "",
+"category": "weapons",
+"controller": "",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "Weapon Category 2",
+"hidden": "",
+"key": "KEY_2"
+},
+"weaponSwitchCategory3": {
+"allowMultipleBinds": "",
+"category": "weapons",
+"controller": "",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "Weapon Category 3",
+"hidden": "",
+"key": "KEY_3"
+},
+"weaponSwitchCategory4": {
+"allowMultipleBinds": "",
+"category": "weapons",
+"controller": "",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "Weapon Category 4",
+"hidden": "",
+"key": "KEY_4"
+},
+"weaponSwitchCategory5": {
+"allowMultipleBinds": "",
+"category": "weapons",
+"controller": "",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "Weapon Category 5",
+"hidden": "",
+"key": "KEY_5"
+},
+"weaponSwitchCategory6": {
+"allowMultipleBinds": "",
+"category": "weapons",
+"controller": "",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "Weapon Category 6",
+"hidden": "",
+"key": "KEY_6"
+},
+"weaponSwitchCategory7": {
+"allowMultipleBinds": "",
+"category": "weapons",
+"controller": "",
+"controllerOnly": "",
+"disallowM1": "",
+"displayName": "Weapon Category 7",
+"hidden": "",
+"key": "KEY_7"
+}
+}

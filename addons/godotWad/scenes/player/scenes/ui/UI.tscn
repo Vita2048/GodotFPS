@@ -1,0 +1,39 @@
+[gd_scene load_steps=2 format=3 uid="uid://cwcvm22o3guw"]
+
+[ext_resource type="Script" path="res://addons/godotWad/scenes/player/scenes/creosshair/Crosshair.gd" id="2"]
+
+[node name="UI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Crosshair" type="Node2D" parent="."]
+position = Vector2(512, 300)
+script = ExtResource("2")
+gap = 8
+length = 10
+thickness = 5
+color = Color(0.858824, 0, 0, 0.552941)
+
+[node name="right" type="Line2D" parent="Crosshair"]
+points = PackedVector2Array(8, 0, 18, 0)
+width = 5.0
+default_color = Color(0.858824, 0, 0, 0.552941)
+
+[node name="left" type="Line2D" parent="Crosshair"]
+points = PackedVector2Array(-8, 0, -18, 0)
+width = 5.0
+default_color = Color(0.858824, 0, 0, 0.552941)
+
+[node name="up" type="Line2D" parent="Crosshair"]
+points = PackedVector2Array(0, -18, 0, -8)
+width = 5.0
+default_color = Color(0.858824, 0, 0, 0.552941)
+
+[node name="down" type="Line2D" parent="Crosshair"]
+position = Vector2(0.105103, 0)
+points = PackedVector2Array(0, 18, 0, 8)
+width = 5.0
+default_color = Color(0.858824, 0, 0, 0.552941)
+round_precision = 14

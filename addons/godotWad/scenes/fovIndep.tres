@@ -1,0 +1,10 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://cwf8uw4xs8sj4"]
+
+[ext_resource type="Shader" path="res://addons/godotWad/shaders/viewmodel2D.gdshader" id="1_iy1lb"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_iy1lb")
+shader_parameter/albedo = Color(1, 1, 1, 1)
+shader_parameter/point_size = 1.0
+shader_parameter/fov = 90.0

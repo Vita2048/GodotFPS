@@ -1,0 +1,58 @@
+[gd_scene load_steps=5 format=3 uid="uid://etboxp4n0ikn"]
+
+[ext_resource type="PackedScene" uid="uid://dhxyaai4rce5r" path="res://addons/godotWad/scenes/enemies/npc_template.tscn" id="1"]
+[ext_resource type="Resource" path="res://addons/godotWad/scenes/enemies/templates/sprites/painElementalSprites.tres" id="2"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_lcgij"]
+
+[sub_resource type="BoxShape3D" id="1"]
+size = Vector3(62, 56, 62)
+
+[node name="PainElemental" instance=ExtResource("1")]
+initialHP = 400.0
+npcName = "pain elemental"
+height = 56.0
+thickness = 31.0
+mass = 400.0
+projectile = "lost soul"
+meleeDamage = 12.0
+drops = Array[String](["lost soul", "lost soul", "lost soul"])
+deleteOnDeath = true
+stateDataPath = "res://addons/godotWad/resources/monsterStates/painElementalStates.tres"
+attackStateId = 6
+painStateId = 10
+gibStateId = 12
+painChance = 0.5
+flying = true
+
+[node name="AnimatedSprite3D" parent="." index="0"]
+mesh = SubResource("QuadMesh_lcgij")
+
+[node name="CollisionShape3D" parent="." index="3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 28, 0)
+shape = SubResource("1")
+
+[node name="cast" parent="." index="4"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 44.8, 0)
+
+[node name="Generator" parent="." index="7"]
+sprites = ExtResource("2")
+idle = "A"
+chase = "AABBCC"
+attack = "DEFF"
+hurt = "GG"
+dying = "HIJKLM"
+deathSounds = ["DSPEDTH"]
+gibSounds = []
+painSounds = ["DSPEPAIN"]
+attackSounds = ["DSSKLATK"]
+alertSounds = ["DSPESIT"]
+searchSounds = Array[StringName]([&"DSDMACT"])
+
+[node name="VisibleOnScreenNotifier3D" parent="." index="8"]
+aabb = AABB(-1, 0, -1, 2, 56, 2)
+
+[node name="movement" parent="." index="9"]
+gravity = 0.0
+
+[editable path="AnimatedSprite3D"]

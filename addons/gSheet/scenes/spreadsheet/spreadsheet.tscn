@@ -1,0 +1,38 @@
+[gd_scene load_steps=3 format=3 uid="uid://bgurwybr4dki2"]
+
+[ext_resource type="Script" path="res://addons/gSheet/scenes/spreadsheet/mainScript.gd" id="1"]
+[ext_resource type="Resource" uid="uid://k628f5uggtje" path="res://addons/gSheet/scenes/spreadsheet/resource/dark.tres" id="2"]
+
+[node name="SpreadSheet" type="Control"]
+clip_contents = true
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="Control" type="VBoxContainer" parent="."]
+clip_contents = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 4
+script = ExtResource("1")
+sheetStyle = ExtResource("2")
+initialColumns = 20
+
+[node name="ScrollContainer" type="ScrollContainer" parent="Control"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+follow_focus = true
+horizontal_scroll_mode = 2
+vertical_scroll_mode = 2
+
+[connection signal="draw" from="Control" to="Control" method="_on_Control_draw"]

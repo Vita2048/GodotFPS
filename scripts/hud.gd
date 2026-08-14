@@ -50,7 +50,11 @@ func _update_fps_label() -> void:
 
 func _on_sector(current: int, max_s: int) -> void:
 	if message_label:
-		message_label.text = "SECTOR %d / %d" % [current, max_s]
+		var map_n := GameState.current_map_name if GameState else ""
+		if map_n != "":
+			message_label.text = "%s  (%d / %d)" % [map_n, current, max_s]
+		else:
+			message_label.text = "SECTOR %d / %d" % [current, max_s]
 		message_label.modulate.a = 1.0
 		var tw := create_tween()
 		tw.tween_interval(2.0)

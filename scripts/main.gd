@@ -5,6 +5,7 @@ extends Node3D
 @onready var entities: Node3D = $Entities
 @onready var title_ui: Control = $UI/TitleUI
 @onready var world_env: WorldEnvironment = $WorldEnvironment
+var doom
 
 func _ready() -> void:
 	# Prefer fullscreen so the game fills the monitor (toggle with F11).
@@ -21,6 +22,13 @@ func _ready() -> void:
 		title_ui.start_pressed.connect(_on_start)
 		if title_ui.has_signal("difficulty_changed"):
 			title_ui.difficulty_changed.connect(_on_difficulty_changed)
+	get_tree().set_meta("fps_campaign", true)
+	doom = preload("res://scripts/doom_level.gd").new()
+	doom.name = "DoomLevel"
+	add_child(doom)
+	doom.setup(self)
+	if doom.map_count() > 0:
+		GameState.max_sectors = doom.map_count()
 	_build_level()
 	if player:
 		player.set_level(level)
@@ -88,12 +96,29 @@ func _setup_environment() -> void:
 func _build_level() -> void:
 	for c in entities.get_children():
 		c.queue_free()
-	# Two distinct, larger sectors
-	if level.has_method("configure_for_sector"):
-		level.configure_for_sector(GameState.current_sector)
-	level.generate()
-	var spawn: Vector3 = level._spawn_pos
-	player.global_position = spawn + Vector3(0, 0.1, 0)
+	if level:
+		level.visible = false
+		for c in level.get_children():
+			c.queue_free()
+
+	var spawn := Vector3(0, 1, 0)
+	var enemy_pts: Array[Vector3] = []
+	var pick_pts: Array = []
+	if doom and doom.load_index(GameState.current_sector - 1):
+		GameState.current_map_name = doom.current_map_name
+		spawn = doom.spawn_pos
+		enemy_pts = doom.enemy_spawns
+		pick_pts = doom.pickup_spawns
+	else:
+		if level.has_method("configure_for_sector"):
+			level.configure_for_sector(GameState.current_sector)
+		level.visible = true
+		level.generate()
+		spawn = level._spawn_pos
+		enemy_pts = level._enemy_spawns
+		pick_pts = level._pickup_spawns
+
+	player.global_position = spawn + Vector3(0, 0.15, 0)
 	player.velocity = Vector3.ZERO
 
 	var model_pool: Array[String] = [
@@ -112,13 +137,13 @@ func _build_level() -> void:
 	usable.shuffle()
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	for p in level._enemy_spawns:
+	for p in enemy_pts:
 		var e := Enemy.new()
 		e.model_path = usable[rng.randi_range(0, usable.size() - 1)]
 		e.position = Vector3(p.x, p.y, p.z)
 		entities.add_child(e)
 
-	for item in level._pickup_spawns:
+	for item in pick_pts:
 		var pk := Pickup.new()
 		pk.pickup_type = item["type"]
 		pk.position = item["pos"] + Vector3(0, 0.0, 0)

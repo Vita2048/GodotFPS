@@ -1,0 +1,184 @@
+[gd_scene load_steps=12 format=3 uid="uid://cqax7xvwu4hpk"]
+
+[ext_resource type="PackedScene" uid="uid://dm4psfgy7p5y8" path="res://addons/godotWad/scenes/player/playerBase.tscn" id="1"]
+[ext_resource type="Script" path="res://addons/godotWad/scenes/player/debug/playerGenerator.gd" id="2"]
+[ext_resource type="PackedScene" uid="uid://br07pau6iijsu" path="res://addons/godotWad/scenes/quad3Dsprite.tscn" id="2_66ies"]
+[ext_resource type="Resource" uid="uid://vng5p7sbik57" path="res://addons/godotWad/scenes/enemies/templates/sprites/guysprites.tres" id="3"]
+[ext_resource type="Script" path="res://addons/godotWad/scenes/player/playerSounds.gd" id="5"]
+[ext_resource type="PackedScene" uid="uid://c2ghunf5b5s4q" path="res://addons/godotWad/scenes/player/doomHud.tscn" id="6"]
+[ext_resource type="PackedScene" uid="uid://cqedrxebbbduy" path="res://addons/godotWad/scenes/player/ColorOverlay.tscn" id="7"]
+
+[sub_resource type="Shader" id="Shader_jfad3"]
+code = "// NOTE: Shader automatically converted from Godot Engine 4.2.2.stable's StandardMaterial3D.
+
+shader_type spatial;
+render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlick_ggx,unshaded;
+uniform vec2 pixelSize = vec2(1.0,1.0);
+uniform vec4 albedo : source_color = vec4(1.0,1.0,1.0,1.0);
+uniform sampler2D texture_albedo : source_color,filter_nearest,repeat_enable;
+uniform float alpha_scissor_threshold = 1.0;
+uniform float roughness : hint_range(0,1);
+uniform sampler2D texture_metallic : hint_default_white,filter_nearest,repeat_enable;
+uniform vec4 metallic_texture_channel;
+uniform sampler2D texture_roughness : hint_roughness_r,filter_nearest,repeat_enable;
+uniform float specular;
+uniform float metallic;
+uniform sampler2D texture_emission : source_color, hint_default_black,filter_nearest,repeat_enable;
+uniform vec4 emission : source_color;
+uniform float emission_energy;
+uniform vec3 uv1_scale = vec3(1,1,1);
+uniform vec3 uv1_offset;
+uniform vec3 uv2_scale;
+uniform vec3 uv2_offset;
+
+
+void vertex() {
+	UV=UV*uv1_scale.xy+uv1_offset.xy;
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(vec4(normalize(cross(vec3(0.0, 1.0, 0.0), INV_VIEW_MATRIX[2].xyz)), 0.0), vec4(0.0, 1.0, 0.0, 0.0), vec4(normalize(cross(INV_VIEW_MATRIX[0].xyz, vec3(0.0, 1.0, 0.0))), 0.0), MODEL_MATRIX[3]);
+	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
+	VERTEX.x *= float(textureSize(texture_albedo,0).x) * pixelSize.x;
+	VERTEX.y *= float(textureSize(texture_albedo,0).y) *  pixelSize.y;
+}
+
+
+
+void fragment() {
+	vec2 base_uv = UV;
+	vec4 albedo_tex = texture(texture_albedo,base_uv);
+	ALBEDO = albedo.rgb * albedo_tex.rgb;
+	float metallic_tex = dot(texture(texture_metallic,base_uv),metallic_texture_channel);
+	METALLIC = metallic_tex * metallic;
+	vec4 roughness_texture_channel = vec4(1.0,0.0,0.0,0.0);
+	float roughness_tex = dot(texture(texture_roughness,base_uv),roughness_texture_channel);
+	ROUGHNESS = roughness_tex * roughness;
+	SPECULAR = specular;
+	vec3 emission_tex = texture(texture_emission,base_uv).rgb;
+	EMISSION = (emission.rgb+emission_tex)*emission_energy;
+	ALPHA *= albedo.a * albedo_tex.a;
+	ALPHA_SCISSOR_THRESHOLD = alpha_scissor_threshold;
+
+}
+"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_jvugl"]
+render_priority = 0
+shader = SubResource("Shader_jfad3")
+shader_parameter/pixelSize = Vector2(1, 1)
+shader_parameter/albedo = Color(1, 1, 1, 1)
+shader_parameter/alpha_scissor_threshold = 0.145
+shader_parameter/roughness = null
+shader_parameter/metallic_texture_channel = null
+shader_parameter/specular = null
+shader_parameter/metallic = null
+shader_parameter/emission = null
+shader_parameter/emission_energy = null
+shader_parameter/uv1_scale = Vector3(1, 1, 1)
+shader_parameter/uv1_offset = null
+shader_parameter/uv2_scale = Vector3(1, 1, 1)
+shader_parameter/uv2_offset = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_ykmww"]
+material = SubResource("ShaderMaterial_jvugl")
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_pbyni"]
+size = Vector3(31.94, 55, 31.94)
+
+[node name="CharacterBody3D" instance=ExtResource("1")]
+mouseSensitivity = 0.05
+headBobSpeed = 1000
+initialHp = 100
+maxHp = 100
+maxSpeed = 1600
+hudIndex = 1
+
+[node name="AnimatedSprite3D" parent="visual" index="0" instance=ExtResource("2_66ies")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
+mesh = SubResource("QuadMesh_ykmww")
+skeleton = NodePath("../..")
+
+[node name="weapons" parent="visual/gunManager" index="0"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.95994e-19, 0.001, 0)
+
+[node name="cameraAttach" parent="visual" index="2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 40.2655, 0)
+
+[node name="ColorOverlay" parent="UI" index="1" instance=ExtResource("7")]
+layout_mode = 1
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="HUD1" parent="UI/HUDS" index="0"]
+visible = false
+
+[node name="hp" parent="UI/HUDS/HUD1" index="0"]
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 48.0
+offset_bottom = 23.0
+
+[node name="armor" parent="UI/HUDS/HUD1" index="1"]
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 40.0
+offset_bottom = 23.0
+
+[node name="ammo" parent="UI/HUDS/HUD1" index="2"]
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 50.0
+offset_bottom = 23.0
+
+[node name="HUD2" parent="UI/HUDS" index="1" instance=ExtResource("6")]
+layout_mode = 1
+
+[node name="Label" parent="UI/HUDS/HUD2/v/h/armor" index="0"]
+scale = Vector2(2.74359, 4.75)
+text = ""
+
+[node name="Label" parent="UI/HUDS/HUD2/v/h/hp" index="0"]
+scale = Vector2(2.74359, 4.75)
+
+[node name="Label" parent="UI/HUDS/HUD2/HBoxContainer/VBoxContainer/ammo" index="0"]
+scale = Vector2(2.33333, 4.75)
+
+[node name="CollisionShape3D" parent="." index="4"]
+top_level = false
+shape = SubResource("BoxShape3D_pbyni")
+
+[node name="Generator" type="Node" parent="." index="5"]
+script = ExtResource("2")
+sprites = ExtResource("3")
+dying = "HIJKLMN"
+gruntSound = "DSNOWAY"
+
+[node name="AudioStreamPlayer3D" type="AudioStreamPlayer3D" parent="." index="6"]
+script = ExtResource("5")
+
+[node name="movement" parent="." index="10"]
+maxVelo = Vector3(50, inf, 50)
+slopeAngle = 46.0
+
+[node name="OmniLight3D" type="OmniLight3D" parent="." index="13"]
+visible = false
+light_energy = 2.396
+omni_range = 7.187
+
+[editable path="visual/gunManager"]
+[editable path="UI/ColorOverlay"]
+[editable path="UI/HUDS/HUD2"]
+[editable path="UI/HUDS/HUD2/v/h/armor"]
+[editable path="UI/HUDS/HUD2/v/h/hp"]
+[editable path="UI/HUDS/HUD2/HBoxContainer/VBoxContainer/ammo"]

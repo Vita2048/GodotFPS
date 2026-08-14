@@ -23,6 +23,8 @@ var _hurt_flash: float = 0.0
 var _level: LevelGenerator
 var _active: bool = false
 var _fire_held: bool = false
+## Read by GodotWadImporter door / switch / exit triggers.
+var interactPressed: bool = false
 
 func _ready() -> void:
 	add_to_group("player")
@@ -178,6 +180,7 @@ func _toggle_fullscreen() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	interactPressed = _active and not GameState.player_dead and not GameState.paused and Input.is_action_pressed("interact")
 	if not _active or GameState.player_dead or GameState.paused:
 		_fire_held = false
 		velocity = Vector3.ZERO
@@ -297,10 +300,10 @@ func _try_step_up(dir: Vector3) -> void:
 
 
 func _try_interact() -> void:
-	if _level == null:
-		return
-	var dir := -camera.global_transform.basis.z
-	_level.try_open_door_near(global_position, dir)
+	interactPressed = true
+	if _level != null and _level.has_method("try_open_door_near"):
+		var dir := -camera.global_transform.basis.z
+		_level.try_open_door_near(global_position, dir)
 
 
 func _on_reload_finished() -> void:

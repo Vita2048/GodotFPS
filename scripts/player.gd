@@ -137,6 +137,23 @@ func set_level(level: LevelGenerator) -> void:
 	_level = level
 
 
+func lift_out_of_geometry() -> void:
+	var col := get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if col == null or col.shape == null or not is_inside_tree():
+		return
+	var space := get_world_3d().direct_space_state
+	var params := PhysicsShapeQueryParameters3D.new()
+	params.shape = col.shape
+	params.collision_mask = 1
+	params.exclude = [get_rid()]
+	for _i in 28:
+		params.transform = col.global_transform
+		if space.intersect_shape(params, 1).is_empty():
+			return
+		global_position.y += 0.12
+	velocity.y = 0.0
+
+
 ## Use _input (not _unhandled_input) so look/shoot still work if a Control had focus.
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("fullscreen_toggle"):
@@ -320,7 +337,7 @@ func _try_step_up(dir: Vector3) -> void:
 	var forward := horiz.normalized() * 0.24
 	if not test_move(global_transform, forward):
 		return
-	for lift in [0.18, 0.30, 0.42, 0.54, 0.66, 0.80]:
+	for lift in [0.16, 0.28, 0.40, 0.52, 0.64, 0.80, 1.00]:
 		var up := Vector3(0.0, lift, 0.0)
 		if test_move(global_transform, up):
 			continue

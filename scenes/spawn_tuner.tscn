@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://cspawn_tuner01"]
+
+[ext_resource type="Script" path="res://scripts/spawn_tuner.gd" id="1_tuner"]
+
+[node name="SpawnTuner" type="Node3D"]
+script = ExtResource("1_tuner")

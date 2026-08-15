@@ -23,8 +23,12 @@ func _ready() -> void:
 		if title_ui.has_signal("difficulty_changed"):
 			title_ui.difficulty_changed.connect(_on_difficulty_changed)
 	get_tree().set_meta("fps_campaign", true)
-	doom = preload("res://scripts/doom_level.gd").new()
-	doom.name = "DoomLevel"
+	if ResourceLoader.exists("res://assets/levels/Level.fbx"):
+		doom = preload("res://scripts/fbx_level.gd").new()
+		doom.name = "FbxLevel"
+	else:
+		doom = preload("res://scripts/doom_level.gd").new()
+		doom.name = "DoomLevel"
 	add_child(doom)
 	doom.setup(self)
 	if doom.map_count() > 0:
@@ -107,6 +111,10 @@ func _build_level() -> void:
 	var pick_pts: Array = []
 	if doom and doom.load_index(GameState.current_sector - 1):
 		GameState.current_map_name = doom.current_map_name
+		await get_tree().physics_frame
+		await get_tree().physics_frame
+		if doom.has_method("snap_spawns_to_floor"):
+			doom.snap_spawns_to_floor(get_world_3d())
 		spawn = doom.spawn_pos
 		enemy_pts = doom.enemy_spawns
 		pick_pts = doom.pickup_spawns
@@ -119,8 +127,19 @@ func _build_level() -> void:
 		enemy_pts = level._enemy_spawns
 		pick_pts = level._pickup_spawns
 
-	player.global_position = spawn + Vector3(0, 0.15, 0)
+	player.global_position = spawn + Vector3(0, 0.05, 0)
 	player.velocity = Vector3.ZERO
+	if ResourceLoader.exists("res://resources/player_spawn.tres"):
+		var tuned = load("res://resources/player_spawn.tres")
+		if tuned and tuned.get("enabled"):
+			var yaw := deg_to_rad(float(tuned.yaw_degrees))
+			player.rotation.y = yaw
+			player._yaw = yaw
+	if player.has_method("lift_out_of_geometry"):
+		await get_tree().physics_frame
+		player.lift_out_of_geometry()
+	if player.camera:
+		player.camera.current = true
 	if player.has_method("clear_inventory"):
 		player.clear_inventory()
 

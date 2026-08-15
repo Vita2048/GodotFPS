@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="PlayerSpawn" format=3]
+
+[ext_resource type="Script" path="res://scripts/player_spawn.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+enabled = true
+position = Vector3(-17.00465, 3.4000077, -14.6302)

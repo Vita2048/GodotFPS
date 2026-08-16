@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://w7qrqr1w4o8u"]
+
+[ext_resource type="Texture2D" path="res://textures/jf2crate01.png" id="1_4imo5"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_4imo5")
+texture_filter = 0

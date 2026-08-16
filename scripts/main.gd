@@ -22,6 +22,8 @@ func _ready() -> void:
 		title_ui.start_pressed.connect(_on_start)
 		if title_ui.has_signal("difficulty_changed"):
 			title_ui.difficulty_changed.connect(_on_difficulty_changed)
+		if title_ui.has_signal("map_changed"):
+			title_ui.map_changed.connect(_on_map_changed)
 	get_tree().set_meta("fps_campaign", true)
 	doom = preload("res://scripts/doom_level.gd").new()
 	doom.name = "DoomLevel"
@@ -53,6 +55,14 @@ func _can_change_difficulty() -> bool:
 func _on_difficulty_changed() -> void:
 	if _can_change_difficulty():
 		_build_level()
+
+
+func _on_map_changed() -> void:
+	if not _can_change_difficulty():
+		return
+	if title_ui and title_ui.has_method("selected_map_index"):
+		GameState.current_sector = title_ui.selected_map_index() + 1
+	_build_level()
 
 
 func _setup_environment() -> void:
@@ -89,12 +99,12 @@ func _setup_environment() -> void:
 		sun.name = "FillSun"
 		add_child(sun)
 	sun.light_color = Color(1.0, 0.92, 0.78)
-	sun.light_energy = 1.05
+	sun.light_energy = 0.85
 	sun.rotation_degrees = Vector3(-28, 130, 0)
 	sun.shadow_enabled = false
 
 
-func _build_level() -> void:
+func _build_level(spawn_actors: bool = false) -> void:
 	for c in entities.get_children():
 		c.queue_free()
 	if level:
@@ -106,6 +116,8 @@ func _build_level() -> void:
 	var enemy_pts: Array[Vector3] = []
 	var pick_pts: Array = []
 	if doom and doom.load_index(GameState.current_sector - 1):
+		if doom.has_method("finalize_after_physics"):
+			await doom.finalize_after_physics()
 		GameState.current_map_name = doom.current_map_name
 		spawn = doom.spawn_pos
 		enemy_pts = doom.enemy_spawns
@@ -140,19 +152,24 @@ func _build_level() -> void:
 	usable.shuffle()
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	for p in enemy_pts:
-		var e := Enemy.new()
-		e.model_path = usable[rng.randi_range(0, usable.size() - 1)]
-		e.position = Vector3(p.x, p.y, p.z)
-		entities.add_child(e)
+	var cap := GameState.enemy_count_cap() if GameState else 12
+	if enemy_pts.size() > cap:
+		enemy_pts.shuffle()
+		enemy_pts.resize(cap)
+	if spawn_actors:
+		for p in enemy_pts:
+			var e := Enemy.new()
+			e.model_path = usable[rng.randi_range(0, usable.size() - 1)]
+			e.position = Vector3(p.x, p.y, p.z)
+			entities.add_child(e)
 
-	for item in pick_pts:
-		var pk := Pickup.new()
-		pk.pickup_type = item["type"]
-		if item.has("key_name"):
-			pk.key_name = String(item["key_name"])
-		pk.position = item["pos"] + Vector3(0, 0.35, 0)
-		entities.add_child(pk)
+		for item in pick_pts:
+			var pk := Pickup.new()
+			pk.pickup_type = item["type"]
+			if item.has("key_name"):
+				pk.key_name = String(item["key_name"])
+			pk.position = item["pos"] + Vector3(0, 0.35, 0)
+			entities.add_child(pk)
 
 	await get_tree().process_frame
 	if has_node("Player/HUD") and player.hud.has_method("_on_enemies"):
@@ -181,12 +198,12 @@ func _on_start() -> void:
 			GameState.reset(true)
 			GameState.score = 0
 			GameState.score_changed.emit(0)
-		_build_level()
+		await _build_level(true)
 	elif not GameState.game_started:
 		if title_ui and title_ui.has_method("selected_map_index"):
 			GameState.current_sector = title_ui.selected_map_index() + 1
 		GameState.reset(true)
-		_build_level()
+		await _build_level(true)
 		var count := 0
 		for c in entities.get_children():
 			if c is Enemy:

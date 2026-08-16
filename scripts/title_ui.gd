@@ -2,6 +2,7 @@ extends Control
 
 signal start_pressed
 signal difficulty_changed
+signal map_changed
 
 @onready var title_label: Label = $Center/VBox/Title
 @onready var subtitle: Label = $Center/VBox/Subtitle
@@ -104,7 +105,7 @@ func _build_map_ui() -> void:
 	prev.pressed.connect(func(): _shift_map(-1))
 	_map_row.add_child(prev)
 	_map_label = Label.new()
-	_map_label.custom_minimum_size = Vector2(120, 0)
+	_map_label.custom_minimum_size = Vector2(280, 0)
 	_map_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_map_label.add_theme_font_size_override("font_size", 20)
 	_map_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35))
@@ -127,6 +128,7 @@ func _shift_map(delta: int) -> void:
 		return
 	_map_index = posmod(_map_index + delta, _map_names.size())
 	_refresh_map_ui()
+	map_changed.emit()
 
 
 func _refresh_map_ui() -> void:
@@ -180,7 +182,7 @@ func show_title() -> void:
 		title_label.text = "GODOT FPS"
 	if subtitle:
 		var map_n := GameState.current_map_name if GameState else "E1M1"
-		subtitle.text = "Ultimate Doom maps · %s" % map_n
+		subtitle.text = "Quake BSP · %s" % map_n
 	if start_btn:
 		start_btn.text = "CLICK TO PLAY"
 	if controls:

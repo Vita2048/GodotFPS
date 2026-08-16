@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://c861wnkjdujv4"]
+
+[ext_resource type="Texture2D" path="res://textures/slipbotsd.png" id="1_d2awg"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_d2awg")
+texture_filter = 0

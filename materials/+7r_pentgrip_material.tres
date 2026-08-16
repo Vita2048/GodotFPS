@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://bdsliq0l6vnie"]
+
+[ext_resource type="Texture2D" path="res://textures/+7r_pentgrip.png" id="1_t4trp"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_t4trp")
+texture_filter = 0

@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://bxmuxthwvtdxi"]
+
+[ext_resource type="Texture2D" path="res://textures/wizwood1_8.png" id="1_cetdg"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_cetdg")
+texture_filter = 0

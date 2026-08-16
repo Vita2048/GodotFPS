@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://b86wkwn2t06t4"]
+
+[ext_resource type="Texture2D" path="res://textures/column01_3.png" id="1_07ie7"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_07ie7")
+texture_filter = 0

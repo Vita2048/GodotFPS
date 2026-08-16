@@ -7,9 +7,10 @@ enum State { IDLE, CHASE, ATTACK, DEAD }
 @export var max_hp: int = 80
 @export var walk_speed: float = 2.2
 @export var run_speed: float = 4.0
-@export var attack_range: float = 12.0
+@export var attack_range: float = 16.0
 @export var melee_range: float = 2.2
-@export var sight_range: float = 22.0
+@export var sight_range: float = 28.0
+@export var hold_range: float = 10.0
 @export var damage: int = 8
 @export var attack_cooldown: float = 1.1
 
@@ -30,6 +31,7 @@ var _death_drop: float = 0.0
 var _death_len: float = 1.0
 var _corpse_settled: bool = false
 var _los_time: float = 0.0
+var _shoot_lock: float = 0.0
 ## Surface materials we set in _prepare_meshes (restored after hurt flash / on death)
 var _surface_mats: Array = [] # Array of { "mi": MeshInstance3D, "surface": int, "mat": Material }
 
@@ -90,6 +92,7 @@ func _apply_difficulty_stats() -> void:
 	attack_cooldown = GameState.enemy_attack_cooldown()
 	sight_range = GameState.enemy_sight_range()
 	attack_range = GameState.enemy_attack_range()
+	hold_range = clampf(attack_range * 0.62, 8.0, 12.0)
 	var spd: float = GameState.enemy_speed_scale()
 	walk_speed = 2.2 * spd
 	run_speed = 4.0 * spd
@@ -137,7 +140,6 @@ func _load_visuals_and_anims() -> void:
 		var ps = load(path)
 		if ps is PackedScene:
 			model = (ps as PackedScene).instantiate()
-			print("[Enemy] loaded model from ", path)
 			break
 	if model == null:
 		push_warning("[Enemy] No character model; using placeholder capsule")
@@ -660,7 +662,7 @@ func _resolve_anim_names() -> void:
 	anim_walk = _pick_anim(all, ["walk"])
 	anim_run = _pick_anim(all, ["run"])
 	anim_pistol_walk = _pick_anim(all, ["pistol"])
-	anim_shoot = _pick_anim(all, ["shoot", "fire"])
+	anim_shoot = _pick_anim(all, ["shoot", "shooting", "fire", "pistolshoot"])
 	anim_die = _pick_anim(all, ["die", "dying", "death"])
 	anim_idle = _pick_anim(all, ["idle", "tpose", "bind"])
 	# Fallbacks
@@ -700,6 +702,8 @@ func _pick_anim(all: PackedStringArray, keywords: Array) -> String:
 func _play(anim_name: String, speed: float = 1.0) -> void:
 	if _anim == null or anim_name == "":
 		return
+	if _shoot_lock > 0.0 and anim_name != anim_shoot:
+		return
 	_anim.speed_scale = 1.0
 	if anim_name == _current_anim and _anim.is_playing():
 		_anim.speed_scale = speed
@@ -708,6 +712,21 @@ func _play(anim_name: String, speed: float = 1.0) -> void:
 		return
 	_current_anim = anim_name
 	_anim.play(anim_name, 0.25, speed)
+
+
+func _play_shoot() -> void:
+	if _anim == null:
+		return
+	var clip_name := anim_shoot
+	if clip_name == "" or not _anim.has_animation(clip_name):
+		clip_name = anim_pistol_walk if anim_pistol_walk != "" else anim_idle
+	if clip_name == "" or not _anim.has_animation(clip_name):
+		return
+	_current_anim = clip_name
+	_anim.speed_scale = 1.0
+	_anim.play(clip_name, 0.08, 1.0)
+	var clip := _anim.get_animation(clip_name)
+	_shoot_lock = maxf(0.45, clip.length if clip else 0.6)
 
 
 func _physics_process(delta: float) -> void:
@@ -729,16 +748,25 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_attack_cd = maxf(0.0, _attack_cd - delta)
+	_shoot_lock = maxf(0.0, _shoot_lock - delta)
+	var shooting := _shoot_lock > 0.0
 
 	var to_player := _player.global_position - global_position
 	to_player.y = 0.0
 	var dist := to_player.length()
-	var can_see := dist < sight_range and _has_line_of_sight()
+	var can_see := false
+	if dist < sight_range:
+		# Check often once alerted so they actually open fire at range.
+		var every := 2 if _aware else 4
+		if (Engine.get_physics_frames() + get_instance_id()) % every == 0:
+			can_see = _has_line_of_sight()
+		elif _los_time > 0.0:
+			can_see = true
 	if can_see:
 		_los_time = minf(_los_time + delta, 1.0)
 		_aware = true
 	else:
-		_los_time = maxf(0.0, _los_time - delta * 2.0)
+		_los_time = maxf(0.0, _los_time - delta * 1.2)
 
 	if not _aware:
 		_patrol(delta)
@@ -757,33 +785,34 @@ func _physics_process(delta: float) -> void:
 	if dist <= melee_range * 0.9 and can_see:
 		state = State.ATTACK
 		velocity = Vector3.ZERO
-		_try_attack()
-	elif dist <= attack_range and can_see and _los_time > 0.22:
-		# Strafe / cautious advance with pistol walk, shoot periodically
+		_try_attack(true)
+	elif dist <= attack_range and can_see:
+		# Hold mid-range and shoot; do not close into the player's face.
 		state = State.ATTACK
 		var dir := to_player.normalized()
-		# Keep optimal mid-range
-		if dist > 7.0:
+		if dist > hold_range + 1.5:
 			velocity = dir * walk_speed
-			_play(anim_pistol_walk if anim_pistol_walk != "" else anim_walk, 1.0)
-		elif dist < 4.0:
-			velocity = -dir * walk_speed * 0.6
-			_play(anim_pistol_walk if anim_pistol_walk != "" else anim_walk, 0.9)
+			if not shooting:
+				_play(anim_pistol_walk if anim_pistol_walk != "" else anim_walk, 1.0)
+		elif dist < hold_range - 2.0:
+			velocity = -dir * walk_speed * 0.7
+			if not shooting:
+				_play(anim_pistol_walk if anim_pistol_walk != "" else anim_walk, 0.9)
 		else:
-			# sidestep
-			var side := dir.cross(Vector3.UP).normalized()
-			velocity = side * walk_speed * 0.7 * (1.0 if _rng.randf() > 0.5 else -1.0)
-			_play(anim_pistol_walk if anim_pistol_walk != "" else anim_walk, 0.95)
-		_try_attack()
+			velocity = Vector3.ZERO
+			if not shooting:
+				_play(anim_idle if anim_idle != "" else anim_pistol_walk, 1.0)
+		_try_attack(true)
 	else:
 		state = State.CHASE
 		var dir := to_player.normalized()
 		var spd := run_speed if dist > 10.0 else walk_speed
 		velocity = dir * spd
-		if dist > 10.0:
-			_play(anim_run if anim_run != "" else anim_walk, 1.15)
-		else:
-			_play(anim_walk, 1.0)
+		if not shooting:
+			if dist > 10.0:
+				_play(anim_run if anim_run != "" else anim_walk, 1.15)
+			else:
+				_play(anim_walk, 1.0)
 
 	_apply_gravity(delta)
 	move_and_slide()
@@ -880,7 +909,7 @@ func _stick_to_floor() -> void:
 	if not is_inside_tree():
 		return
 	var space := get_world_3d().direct_space_state
-	var y: float = DoomLevel.find_walkable_y(space, global_position, global_position.y + 0.6, global_position.y - 8.0, [self])
+	var y: float = DoomLevel.find_walkable_y(space, global_position, global_position.y + 1.2, global_position.y - 12.0, [self])
 	if is_nan(y):
 		return
 	var dy := global_position.y - y
@@ -920,50 +949,36 @@ func _unstuck() -> void:
 func _has_line_of_sight() -> bool:
 	if _player == null:
 		return false
-	# Thick sweep so thin Doom walls actually block shots (zero-width rays slip through).
-	if not _clear_shot(Vector3(0, 1.35, 0), Vector3(0, 1.35, 0)):
-		return false
-	if not _clear_shot(Vector3(0, 1.05, 0), Vector3(0, 0.9, 0)):
-		return false
-	return true
+	return _clear_shot(Vector3(0, 1.35, 0), Vector3(0, 1.25, 0))
 
 
 func _clear_shot(from_off: Vector3, to_off: Vector3) -> bool:
 	var space := get_world_3d().direct_space_state
 	var from := global_position + from_off
 	var to := _player.global_position + to_off
-	var motion := to - from
-	if motion.length_squared() < 0.01:
+	var dir := to - from
+	if dir.length_squared() < 0.01:
 		return true
-	var ball := SphereShape3D.new()
-	ball.radius = 0.2
-	var params := PhysicsShapeQueryParameters3D.new()
-	params.shape = ball
-	params.transform = Transform3D(Basis(), from)
-	params.motion = motion
-	params.collision_mask = 1
-	params.exclude = [get_rid(), _player.get_rid()]
-	var frac: PackedFloat32Array = space.cast_motion(params)
-	if frac.size() < 2:
-		# Fallback ray
-		var q := PhysicsRayQueryParameters3D.create(from, to)
-		q.collision_mask = 1
-		q.exclude = [self, _player]
-		q.hit_from_inside = true
-		return space.intersect_ray(q).is_empty()
-	# safe fraction of 1.0 means the sphere reached the player
-	return frac[0] > 0.985
+	dir = dir.normalized()
+	# Skip the first few centimeters so starting inside a BSP brush does not block fire.
+	var q := PhysicsRayQueryParameters3D.create(from + dir * 0.35, to)
+	q.collision_mask = 1
+	q.exclude = [self, _player]
+	q.hit_from_inside = false
+	return space.intersect_ray(q).is_empty()
 
 
-func _try_attack() -> void:
+func _try_attack(use_cached_los: bool = false) -> void:
 	if GameState == null or GameState.paused or not GameState.game_started or GameState.player_dead:
 		return
 	if _attack_cd > 0.0:
 		return
-	if not _has_line_of_sight():
+	if not use_cached_los and not _has_line_of_sight():
+		return
+	if use_cached_los and _los_time <= 0.0:
 		return
 	_attack_cd = attack_cooldown + _rng.randf_range(-0.15, 0.25)
-	_play(anim_shoot if anim_shoot != "" else anim_idle, 1.0)
+	_play_shoot()
 	# Delay damage slightly to match muzzle
 	get_tree().create_timer(0.25).timeout.connect(_deal_damage_to_player)
 
@@ -1170,11 +1185,11 @@ func _begin_death_fall() -> void:
 		)
 		if not is_nan(probed):
 			floor_y = probed
-	# Aim hips at a lying height; do not target hands/feet or legs bury mid-crumple.
-	var hip_y := _bone_world_y(["hip", "hips", "pelvis"])
+	# Aim lying hips just above the floor. Do not use mesh AABB (cull box is huge).
+	var hip_y := _bone_world_y(["hips", "hip", "pelvis"])
 	var ref_y := hip_y if hip_y < INF else end_min
 	if ref_y < INF:
-		_death_drop = clampf((floor_y + 0.20) - ref_y, -0.38, 0.0)
+		_death_drop = clampf((floor_y + 0.16) - ref_y, -1.4, 0.2)
 	_anim.seek(0.0, true)
 	_anim.play(anim_die, 0.05, 1.0)
 	if not _anim.animation_finished.is_connected(_on_death_anim_finished):
@@ -1191,8 +1206,6 @@ func _update_death_fall() -> void:
 	# Fall happens in the first half of the clip (matches Mixamo crumple).
 	var w := t * t * (3.0 - 2.0 * t)
 	_model_root.position.y = _death_base_model_y + _death_drop * w
-	# Keep soles at/above the floor while the torso comes down.
-	_keep_feet_above_floor()
 	if t >= 0.999:
 		_freeze_corpse()
 
@@ -1218,11 +1231,11 @@ func _freeze_corpse() -> void:
 		_anim.pause()
 	if _model_root:
 		_model_root.position.y = _death_base_model_y + _death_drop
-	_keep_feet_above_floor()
+	_snap_hips_to_floor()
 	visible = true
 
 
-func _keep_feet_above_floor() -> void:
+func _snap_hips_to_floor() -> void:
 	if _model_root == null or not is_inside_tree():
 		return
 	var floor_y := global_position.y
@@ -1235,11 +1248,13 @@ func _keep_feet_above_floor() -> void:
 	)
 	if not is_nan(probed):
 		floor_y = probed
-	var feet_y := _bone_world_y(["foot", "toe", "ankle"])
-	if feet_y >= INF:
-		feet_y = _lowest_major_bone_y()
-	if feet_y < INF and feet_y < floor_y + 0.02:
-		_model_root.global_position.y += (floor_y + 0.02) - feet_y
+	var hip_y := _bone_world_y(["hips", "hip", "pelvis"])
+	if hip_y >= INF:
+		return
+	# Lying Mixamo hips sit ~16 cm above the floor, not 50+ cm.
+	var dy := (floor_y + 0.16) - hip_y
+	if absf(dy) > 0.02:
+		_model_root.global_position.y += dy
 
 
 func _bone_world_y(needles: Array) -> float:

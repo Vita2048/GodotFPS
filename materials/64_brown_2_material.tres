@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://cdkrimml376o6"]
+
+[ext_resource type="Texture2D" path="res://textures/64_brown_2.png" id="1_tigat"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_tigat")
+texture_filter = 0

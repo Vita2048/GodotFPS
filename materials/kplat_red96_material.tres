@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://btknjhynaqbx2"]
+
+[ext_resource type="Texture2D" path="res://textures/kplat_red96.png" id="1_6o5m2"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_6o5m2")
+texture_filter = 0

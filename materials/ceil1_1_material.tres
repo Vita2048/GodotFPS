@@ -1,0 +1,11 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://cx0a4kjuia5qe"]
+
+[ext_resource type="Texture2D" path="res://textures/ceil1_1.png" id="1_kk85m"]
+[ext_resource type="Texture2D" path="res://textures/ceil1_1_emission.png" id="2_g6tuc"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_kk85m")
+emission_enabled = true
+emission_texture = ExtResource("2_g6tuc")
+texture_filter = 0

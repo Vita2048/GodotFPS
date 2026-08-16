@@ -1,85 +1,124 @@
 extends Node
 class_name DoomLevel
-## Runtime wrapper around GodotWadImporter: loads doom1.WAD maps into the scene.
+## Loads the imported Quake BSP (`basetohell.bsp`) and extracts spawn/thing data.
 
-const WAD_PATH := "res://assets/levels/doom1.WAD"
-const LOADER_SCENE := "res://addons/godotWad/WAD_Loader.tscn"
+const LEVELS_DIR := "res://assets/levels"
+const UNIT_SCALE := 1.0 / 32.0
 
-const MONSTER_TYPES := {
-	7: true, 9: true, 16: true, 58: true, 64: true, 65: true, 66: true,
-	67: true, 68: true, 69: true, 71: true, 72: true, 84: true, 88: true,
-	3001: true, 3002: true, 3003: true, 3004: true, 3005: true, 3006: true,
+const MONSTER_PREFIXES := [
+	"monster_",
+]
+const AMMO_CLASSES := {
+	"item_shells": true,
+	"item_spikes": true,
+	"item_rockets": true,
+	"item_cells": true,
+	"item_weapon": true,
+	"weapon_supershotgun": true,
+	"weapon_nailgun": true,
+	"weapon_supernailgun": true,
+	"weapon_grenadelauncher": true,
+	"weapon_rocketlauncher": true,
+	"weapon_lightning": true,
 }
-const HEALTH_TYPES := {2011: true, 2012: true, 2014: true, 83: true}
-## Clips, shells, cells, rockets, backpacks, and weapons (give ammo).
-const KEY_TYPES := {
-	5: "Blue keycard",
-	6: "Yellow keycard",
-	13: "Red keycard",
-	38: "Red skull key",
-	39: "Yellow skull key",
-	40: "Blue skull key",
+const HEALTH_CLASSES := {
+	"item_health": true,
+	"item_armor1": true,
+	"item_armor2": true,
+	"item_armorInv": true,
 }
-const AMMO_TYPES := {
-	8: true, 17: true, 2001: true, 2002: true, 2003: true, 2004: true, 2006: true,
-	2007: true, 2008: true, 2010: true, 2046: true, 2047: true, 2048: true, 2049: true,
+const KEY_CLASSES := {
+	"item_key1": "Silver key",
+	"item_key2": "Gold key",
+	"item_sigil": "Sigil",
 }
 
-var loader: Node
 var map_node: Node3D
 var spawn_pos := Vector3(0, 1, 0)
 var enemy_spawns: Array[Vector3] = []
 var pickup_spawns: Array = []
 var map_names: Array[String] = []
-var current_map_name: String = "E1M1"
+var current_map_name: String = ""
 var _host: Node
+var _entities: Array[Dictionary] = []
 
 
 func setup(host: Node) -> void:
 	_host = host
-	if loader != null:
-		return
-	var ps: PackedScene = load(LOADER_SCENE)
-	if ps == null:
-		push_error("[DoomLevel] Missing WAD_Loader.tscn")
-		return
-	loader = ps.instantiate()
-	loader.name = "WadLoader"
-	host.add_child(loader)
-	loader.npcsDisabled = true
-	loader.generateNav = 0
-	loader.addOccluder = false
-	loader.unwrapLightmap = false
-	loader.mergeMesh = 3
-	loader.textureFiltering = true
-	if loader.has_method("initialize"):
-		loader.initialize([WAD_PATH], "Doom", "doom")
-	_refresh_map_list()
+	_scan_maps()
 
 
-func _refresh_map_list() -> void:
+func _scan_maps() -> void:
 	map_names.clear()
-	if loader == null or not ("maps" in loader):
+	var dir := DirAccess.open(LEVELS_DIR)
+	if dir == null:
 		return
-	var keys: Array = []
-	for k in loader.maps.keys():
-		keys.append(String(k))
-	keys.sort_custom(func(a: String, b: String) -> bool:
-		return _map_order(a) < _map_order(b)
-	)
-	for k in keys:
-		map_names.append(k)
+	dir.list_dir_begin()
+	var fname := dir.get_next()
+	while fname != "":
+		if not dir.current_is_dir() and fname.get_extension().to_lower() == "bsp":
+			map_names.append(fname.get_basename())
+		fname = dir.get_next()
+	dir.list_dir_end()
+	map_names.sort()
+	if map_names.is_empty():
+		map_names.append("basetohell")
 
 
-func _map_order(n: String) -> int:
-	n = n.to_upper()
-	if n.length() >= 4 and n[0] == "E" and n.contains("M"):
-		var ep := n.substr(1, 1).to_int()
-		var mp := n.get_slice("M", 1).to_int()
-		return ep * 100 + mp
-	if n.begins_with("MAP"):
-		return 1000 + n.substr(3).to_int()
-	return 9000
+func _bsp_path(map_name: String) -> String:
+	return "%s/%s.bsp" % [LEVELS_DIR, map_name]
+
+
+func _instantiate_bsp(scene_path: String) -> Node3D:
+	var res = load(scene_path)
+	if res is PackedScene:
+		return (res as PackedScene).instantiate() as Node3D
+	return _read_bsp_runtime(scene_path)
+
+
+func _read_bsp_runtime(scene_path: String) -> Node3D:
+	var reader := BSPReader.new()
+	reader.unit_scale = UNIT_SCALE
+	reader.import_lights = false
+	reader.generate_occlusion_culling = false
+	reader.generate_shadow_mesh = false
+	reader.generate_lightmap_uv2 = false
+	reader.use_triangle_collision = true
+	reader.ignore_missing_entities = true
+	reader.save_separate_materials = false
+	reader.generate_texture_materials = true
+	reader.overwrite_existing_materials = false
+	reader.overwrite_existing_textures = false
+	reader.include_sky_surfaces = true
+	reader.material_path_pattern = "res://materials/{texture_name}_material.tres"
+	reader.texture_path_pattern = "res://textures/{texture_name}.png"
+	reader.texture_emission_path_pattern = "res://textures/{texture_name}_emission.png"
+	reader.texture_palette_path = "res://textures/palette.lmp"
+	reader.transparent_texture_prefix = "{"
+	reader.entity_path_pattern = "res://entities/{classname}.tscn"
+	reader.entity_remap = {
+		&"func_door": preload("res://entities/brush_entity.tscn"),
+		&"func_door_secret": preload("res://entities/brush_entity.tscn"),
+		&"func_plat": preload("res://entities/brush_entity.tscn"),
+		&"func_button": preload("res://entities/brush_entity.tscn"),
+		&"func_wall": preload("res://entities/brush_entity.tscn"),
+		&"func_illusionary": preload("res://entities/brush_entity.tscn"),
+		&"func_train": preload("res://entities/brush_entity.tscn"),
+		&"func_episodegate": preload("res://entities/brush_entity.tscn"),
+		&"func_bossgate": preload("res://entities/brush_entity.tscn"),
+		&"trigger_once": preload("res://entities/brush_entity.tscn"),
+		&"trigger_multiple": preload("res://entities/brush_entity.tscn"),
+		&"trigger_teleport": preload("res://entities/brush_entity.tscn"),
+		&"trigger_changelevel": preload("res://entities/brush_entity.tscn"),
+		&"trigger_hurt": preload("res://entities/brush_entity.tscn"),
+		&"trigger_secret": preload("res://entities/brush_entity.tscn"),
+	}
+	reader.water_template = load("res://addons/bsp_importer/examples/water_example_template.tscn")
+	reader.slime_template = load("res://addons/bsp_importer/examples/slime_example_template.tscn")
+	reader.lava_template = load("res://addons/bsp_importer/examples/lava_example_template.tscn")
+	var node := reader.read_bsp(scene_path) as Node3D
+	reader.free()
+	return node
 
 
 func map_count() -> int:
@@ -87,31 +126,64 @@ func map_count() -> int:
 
 
 func load_index(index: int) -> bool:
-	if loader == null:
-		return false
-	if map_names.is_empty():
-		_refresh_map_list()
-	if map_names.is_empty():
-		return false
-	index = clampi(index, 0, map_names.size() - 1)
-	return load_map(map_names[index])
+	index = clampi(index, 0, maxi(0, map_names.size() - 1))
+	return load_map(map_names[index] if map_names.size() > 0 else "basetohell")
 
 
 func load_map(map_name: String) -> bool:
-	if loader == null:
-		return false
 	_free_previous_maps()
 	enemy_spawns.clear()
 	pickup_spawns.clear()
 	current_map_name = map_name
-	var created: Node = loader.createMap(map_name, {"blankMap": true, "reloadWads": false})
-	if created == null:
-		push_warning("[DoomLevel] createMap failed for %s" % map_name)
+	var scene_path := _bsp_path(map_name)
+	if not FileAccess.file_exists(scene_path) and not ResourceLoader.exists(scene_path):
+		push_error("[DoomLevel] Missing BSP %s" % scene_path)
 		return false
-	map_node = created as Node3D
+	map_node = _instantiate_bsp(scene_path)
+	if map_node == null:
+		push_error("[DoomLevel] Failed to load %s" % scene_path)
+		return false
+	map_node.name = "BspLevel"
+	map_node.set_meta("map", current_map_name)
+	if _host:
+		_host.add_child(map_node)
 	_fix_trigger_areas(map_node)
-	_quiet_platform_audio(map_node)
-	_extract_things(map_name)
+	_optimize_bsp_runtime(map_node)
+	_entities = _parse_bsp_entities(scene_path)
+	_extract_things()
+	return true
+
+
+func _optimize_bsp_runtime(root: Node) -> void:
+	if root == null:
+		return
+	var lights: Array[Node] = root.find_children("*", "Light3D", true, false)
+	var keep := 6 if QualitySettings == null or QualitySettings.level != QualitySettings.Quality.LOW else 0
+	var i := 0
+	for n in lights:
+		var light := n as Light3D
+		light.shadow_enabled = false
+		if i >= keep:
+			light.visible = false
+			light.queue_free()
+		else:
+			if light is OmniLight3D:
+				(light as OmniLight3D).omni_range = minf((light as OmniLight3D).omni_range, 8.0)
+			light.light_energy = minf(light.light_energy, 0.35)
+		i += 1
+	for n in root.find_children("*", "GeometryInstance3D", true, false):
+		var gi := n as GeometryInstance3D
+		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		gi.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+	for n in root.find_children("*", "OccluderInstance3D", true, false):
+		(n as OccluderInstance3D).visible = QualitySettings != null and QualitySettings.level == QualitySettings.Quality.HIGH
+
+
+func finalize_after_physics() -> void:
+	## Collision is not queryable the same frame the BSP is added.
+	if _host and _host.is_inside_tree():
+		await _host.get_tree().physics_frame
+		await _host.get_tree().physics_frame
 	_snap_spawns_to_floor()
 	_ensure_ammo_pickups()
 	_ensure_easy_health()
@@ -119,23 +191,22 @@ func load_map(map_name: String) -> bool:
 	for item in pickup_spawns:
 		if item.get("type", "") == "ammo":
 			ammo_n += 1
-	print("[DoomLevel] loaded ", map_name, " spawn=", spawn_pos, " enemies=", enemy_spawns.size(), " ammo=", ammo_n)
-	return true
+	print("[DoomLevel] loaded ", current_map_name, " spawn=", spawn_pos, " enemies=", enemy_spawns.size(), " ammo=", ammo_n)
 
 
 func _free_previous_maps() -> void:
+	if map_node and is_instance_valid(map_node):
+		map_node.queue_free()
 	if _host == null:
 		return
 	for c in _host.get_children():
-		if c == loader:
-			continue
-		if c.has_meta("map") or (c.get_script() != null and String(c.get_script().resource_path).ends_with("levelNode.gd")):
-			c.queue_free()
+		if c.has_meta("map") or String(c.name) == "BspLevel":
+			if c != map_node:
+				c.queue_free()
 	map_node = null
 
 
 func _fix_trigger_areas(root: Node) -> void:
-	## Importer Area3Ds default to mask layer 1; our player also lives on layer 2.
 	if root == null:
 		return
 	for n in root.find_children("*", "Area3D", true, false):
@@ -144,61 +215,48 @@ func _fix_trigger_areas(root: Node) -> void:
 		area.monitoring = true
 
 
-func _quiet_platform_audio(root: Node) -> void:
-	if root == null:
-		return
-	for n in root.find_children("*", "AudioStreamPlayer3D", true, false):
-		var p := n as AudioStreamPlayer3D
-		var key := (String(p.name) + " " + (p.stream.resource_name if p.stream else "")).to_upper()
-		if "STNMOV" in key or "PSTART" in key or "PSTOP" in key or p.name in ["openSound", "closeSound"]:
-			# Lifts reuse openSound/closeSound; keep doors a bit louder.
-			var parent_script := ""
-			if p.get_parent() and p.get_parent().get_script():
-				parent_script = String(p.get_parent().get_script().resource_path)
-			if "lift" in parent_script or "floor" in parent_script or "STNMOV" in key or "PSTART" in key:
-				p.volume_db = minf(p.volume_db, -22.0)
-				p.max_distance = 20.0
-
-
-func _extract_things(map_name: String) -> void:
-	if loader == null or not ("maps" in loader):
-		return
-	var maps: Dictionary = loader.maps
-	var key: String = map_name
-	if not maps.has(key):
-		for k in maps.keys():
-			if String(k).to_upper() == map_name.to_upper():
-				key = k
-				break
-	if not maps.has(key):
-		return
-	var things: Array = maps[key].get("thingsParsed", [])
+func _extract_things() -> void:
 	var found_player := false
-	for thing in things:
-		if typeof(thing) != TYPE_DICTIONARY:
+	var dm_fallback := Vector3.ZERO
+	var found_dm := false
+	for t in _entities:
+		var classname := String(t.get("classname", "")).to_lower()
+		if classname.is_empty():
 			continue
-		var t: Dictionary = thing
 		if not _thing_matches_difficulty(t):
 			continue
-		var typ: int = int(t.get("type", 0))
-		var pos: Vector3 = t.get("pos", Vector3.ZERO)
-		if typ == 1:
+		var pos := _entity_origin(t)
+		if classname == "info_player_start":
 			spawn_pos = pos
 			found_player = true
-		elif MONSTER_TYPES.has(typ):
+		elif classname == "info_player_deathmatch":
+			dm_fallback = pos
+			found_dm = true
+		elif _is_monster(classname):
 			enemy_spawns.append(pos)
-		elif HEALTH_TYPES.has(typ):
+		elif HEALTH_CLASSES.has(classname):
 			pickup_spawns.append({"pos": pos, "type": "health"})
-		elif AMMO_TYPES.has(typ):
+		elif AMMO_CLASSES.has(classname) or classname.begins_with("weapon_"):
 			pickup_spawns.append({"pos": pos, "type": "ammo"})
-		elif KEY_TYPES.has(typ):
-			pickup_spawns.append({"pos": pos, "type": "key", "key_name": KEY_TYPES[typ]})
+		elif KEY_CLASSES.has(classname):
+			pickup_spawns.append({"pos": pos, "type": "key", "key_name": KEY_CLASSES[classname]})
 	if not found_player:
-		spawn_pos = Vector3(0, 2, 0)
+		spawn_pos = dm_fallback if found_dm else Vector3(0, 2, 0)
+
+
+func _is_monster(classname: String) -> bool:
+	for p in MONSTER_PREFIXES:
+		if classname.begins_with(p):
+			return true
+	return false
+
+
+func _entity_origin(t: Dictionary) -> Vector3:
+	var origin_s := String(t.get("origin", "0 0 0"))
+	return BSPReader.string_to_origin(origin_s, UNIT_SCALE)
 
 
 func _ensure_ammo_pickups() -> void:
-	## E1M1 has few bullet clips; seed extras so the rifle doesn't run dry.
 	var ammo_n := 0
 	for item in pickup_spawns:
 		if item.get("type", "") == "ammo":
@@ -212,7 +270,6 @@ func _ensure_ammo_pickups() -> void:
 	var candidates: Array[Vector3] = []
 	for p in enemy_spawns:
 		candidates.append(p)
-	# Ring around the player start
 	for i in 6:
 		var a := float(i) / 6.0 * TAU
 		candidates.append(spawn_pos + Vector3(cos(a), 0.0, sin(a)) * 4.5)
@@ -261,24 +318,17 @@ func _ensure_easy_health() -> void:
 
 
 func _thing_matches_difficulty(t: Dictionary) -> bool:
-	var flags: int = int(t.get("flags", 0))
-	if (flags & 16) != 0:
-		return false
-	var easy := (flags & 1) != 0
-	var medium := (flags & 2) != 0
-	var hard := (flags & 4) != 0
-	# Things with no skill bits still show in all modes.
-	if not easy and not medium and not hard:
-		return true
+	var flags: int = int(String(t.get("spawnflags", "0")).to_int())
+	# Quake: 256 not easy, 512 not medium, 1024 not hard, 2048 not deathmatch
 	if GameState == null:
-		return easy or medium
+		return (flags & 256) == 0
 	match GameState.difficulty:
 		GameState.Difficulty.EASY:
-			return easy or medium
+			return (flags & 256) == 0
 		GameState.Difficulty.NORMAL:
-			return easy or medium
+			return (flags & 512) == 0
 		_:
-			return true
+			return (flags & 1024) == 0
 
 
 func _snap_spawns_to_floor() -> void:
@@ -293,12 +343,67 @@ func _snap_spawns_to_floor() -> void:
 
 
 func _ray_floor(space: PhysicsDirectSpaceState3D, pos: Vector3) -> Vector3:
-	var y := find_walkable_y(space, pos, 80.0, -80.0, [])
+	## Start just above the Quake origin so we do not land on the world roof.
+	var y := find_walkable_y(space, pos, pos.y + 1.8, pos.y - 20.0, [])
 	if is_nan(y):
-		if pos.y < -1000.0:
-			return Vector3(pos.x, 1.0, pos.z)
+		return pos
+	if y > pos.y + 2.5:
 		return pos
 	return Vector3(pos.x, y, pos.z)
+
+
+func _parse_bsp_entities(path: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if not FileAccess.file_exists(path):
+		push_warning("[DoomLevel] BSP file missing: %s" % path)
+		return out
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return out
+	f.big_endian = false
+	var version := f.get_32()
+	# Quake BSP v29 lumps: 15 * {offset, length}; entity lump is 0
+	if version != 29 and version != 30:
+		# Still try lump 0 — Quake / Half-Life style
+		pass
+	var ent_off := f.get_32()
+	var ent_len := f.get_32()
+	if ent_len <= 0 or ent_off < 0:
+		return out
+	f.seek(ent_off)
+	var raw := f.get_buffer(ent_len).get_string_from_ascii()
+	var current: Dictionary = {}
+	var in_ent := false
+	for line in raw.split("\n"):
+		var s := line.strip_edges()
+		if s == "{":
+			current = {}
+			in_ent = true
+			continue
+		if s == "}":
+			if in_ent and not current.is_empty():
+				out.append(current)
+			in_ent = false
+			continue
+		if not in_ent:
+			continue
+		# "key" "value"
+		var first := s.find("\"")
+		if first < 0:
+			continue
+		var second := s.find("\"", first + 1)
+		if second < 0:
+			continue
+		var third := s.find("\"", second + 1)
+		if third < 0:
+			continue
+		var fourth := s.find("\"", third + 1)
+		if fourth < 0:
+			continue
+		var key := s.substr(first + 1, second - first - 1)
+		var val := s.substr(third + 1, fourth - third - 1)
+		current[key] = val
+	return out
 
 
 static func find_walkable_y(space: PhysicsDirectSpaceState3D, pos: Vector3, start_y: float, end_y: float, extra_exclude: Array) -> float:

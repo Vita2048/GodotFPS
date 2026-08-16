@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://cwcvm22o3guw"]
+[gd_scene load_steps=2 format=3 uid="uid://b7k4wadui2alt"]
 
 [ext_resource type="Script" path="res://addons/godotWad/scenes/player/scenes/creosshair/Crosshair.gd" id="2"]
 

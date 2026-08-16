@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://diles4tb4wp6y"]
+
+[ext_resource type="Texture2D" path="res://textures/bricka2_2.png" id="1_ywuer"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_ywuer")
+texture_filter = 0

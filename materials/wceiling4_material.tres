@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://cwlidcdlswetw"]
+
+[ext_resource type="Texture2D" path="res://textures/wceiling4.png" id="1_gkmge"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_gkmge")
+texture_filter = 0

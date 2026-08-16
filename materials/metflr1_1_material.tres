@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://cg5y60a7pmce6"]
+
+[ext_resource type="Texture2D" path="res://textures/metflr1_1.png" id="1_mlmob"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_mlmob")
+texture_filter = 0

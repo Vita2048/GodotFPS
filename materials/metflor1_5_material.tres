@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://laboryi2erbf"]
+
+[ext_resource type="Texture2D" path="res://textures/metflor1_5.png" id="1_cx4d4"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_cx4d4")
+texture_filter = 0

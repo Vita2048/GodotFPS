@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://bhm4l5ancn040"]
+
+[ext_resource type="Texture2D" path="res://textures/tele_top.png" id="1_6ljni"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_6ljni")
+texture_filter = 0

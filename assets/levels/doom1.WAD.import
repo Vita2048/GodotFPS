@@ -1,0 +1,14 @@
+[remap]
+
+importer="bsp"
+type="PackedScene"
+uid="uid://bdo6r3cy7cf7x"
+path="res://.godot/imported/doom1.WAD-81adf5c292d595a63072a4552bbdb370.scn"
+
+[deps]
+
+source_file="res://assets/levels/doom1.WAD"
+dest_files=["res://.godot/imported/doom1.WAD-81adf5c292d595a63072a4552bbdb370.scn"]
+
+[params]
+

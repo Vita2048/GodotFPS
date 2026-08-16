@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://cigorrwtdlexn"]
+
+[ext_resource type="Texture2D" path="res://textures/plat_stem3.png" id="1_5ti5d"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_5ti5d")
+texture_filter = 0

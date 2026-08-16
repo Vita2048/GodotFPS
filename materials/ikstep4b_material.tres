@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://b5i27vls1vha2"]
+
+[ext_resource type="Texture2D" path="res://textures/ikstep4b.png" id="1_i2s4x"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_i2s4x")
+texture_filter = 0

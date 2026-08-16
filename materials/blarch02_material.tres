@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://cow71u5lyec6h"]
+
+[ext_resource type="Texture2D" path="res://textures/blarch02.png" id="1_0dap6"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_0dap6")
+texture_filter = 0

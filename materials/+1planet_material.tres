@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://rni3i8fnx0l5"]
+
+[ext_resource type="Texture2D" path="res://textures/+1planet.png" id="1_phsbc"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_phsbc")
+texture_filter = 0

@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://rcwr7f4i5yx"]
+
+[ext_resource type="Texture2D" path="res://textures/triforce.png" id="1_f6ji8"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_f6ji8")
+texture_filter = 0

@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://ccfdww3h4cdox"]
+
+[ext_resource type="Texture2D" path="res://textures/ceiling1_3.png" id="1_c57oh"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_c57oh")
+texture_filter = 0

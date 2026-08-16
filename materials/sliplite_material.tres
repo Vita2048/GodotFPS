@@ -1,0 +1,11 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://bi1to4dvihqk8"]
+
+[ext_resource type="Texture2D" path="res://textures/sliplite.png" id="1_p2on7"]
+[ext_resource type="Texture2D" path="res://textures/sliplite_emission.png" id="2_x2xku"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_p2on7")
+emission_enabled = true
+emission_texture = ExtResource("2_x2xku")
+texture_filter = 0

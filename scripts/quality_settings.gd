@@ -26,12 +26,12 @@ func apply(q: Quality) -> void:
 
 	match q:
 		Quality.LOW:
-			vp.scaling_3d_scale = 0.7
+			vp.scaling_3d_scale = 0.5
 			vp.msaa_3d = Viewport.MSAA_DISABLED
 			vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 			vp.use_debanding = false
 			_env(false, false, false, 0.0)
-			RenderingServer.directional_shadow_atlas_set_size(512, true)
+			RenderingServer.directional_shadow_atlas_set_size(256, true)
 		Quality.MEDIUM:
 			vp.scaling_3d_scale = 0.85
 			vp.msaa_3d = Viewport.MSAA_2X
@@ -61,9 +61,8 @@ func _env(ssao: bool, glow: bool, ssil: bool, glow_intensity: float) -> void:
 	env.ssil_enabled = ssil
 	env.glow_enabled = glow
 	env.glow_intensity = glow_intensity
-	env.fog_enabled = true
-	# Cheaper fog on low
-	env.fog_density = 0.0035 if level == Quality.LOW else 0.0022
+	env.fog_enabled = level != Quality.LOW
+	env.fog_density = 0.0022
 
 
 func label() -> String:

@@ -1,0 +1,11 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://bxlpsm6r32bh8"]
+
+[ext_resource type="Texture2D" path="res://textures/blulit2.png" id="1_uq7cl"]
+[ext_resource type="Texture2D" path="res://textures/blulit2_emission.png" id="2_3ajpe"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_uq7cl")
+emission_enabled = true
+emission_texture = ExtResource("2_3ajpe")
+texture_filter = 0

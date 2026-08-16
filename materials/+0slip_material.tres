@@ -1,0 +1,11 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://cvny1bfg5alql"]
+
+[ext_resource type="Texture2D" path="res://textures/+0slip.png" id="1_ddatp"]
+[ext_resource type="Texture2D" path="res://textures/+0slip_emission.png" id="2_s3brw"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_ddatp")
+emission_enabled = true
+emission_texture = ExtResource("2_s3brw")
+texture_filter = 0

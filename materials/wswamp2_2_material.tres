@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://bwy8ccl85lb5n"]
+
+[ext_resource type="Texture2D" path="res://textures/wswamp2_2.png" id="1_g753u"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_g753u")
+texture_filter = 0

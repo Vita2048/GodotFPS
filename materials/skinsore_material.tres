@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://bft5uxi6yo80l"]
+
+[ext_resource type="Texture2D" path="res://textures/skinsore.png" id="1_gcmei"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_gcmei")
+texture_filter = 0

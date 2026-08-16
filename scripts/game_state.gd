@@ -24,7 +24,7 @@ var player_dead: bool = false
 var game_started: bool = false
 ## True while pause / title / sector menu is up — combat and AI must idle.
 var paused: bool = false
-## Campaign: Doom WAD map index (1-based)
+## Campaign: map index (1-based)
 var current_sector: int = 1
 var max_sectors: int = 9
 var current_map_name: String = "E1M1"
@@ -88,9 +88,9 @@ func enemy_attack_cooldown() -> float:
 func enemy_sight_range() -> float:
 	match difficulty:
 		Difficulty.EASY:
-			return 16.0
-		Difficulty.NORMAL:
 			return 22.0
+		Difficulty.NORMAL:
+			return 28.0
 		_:
 			return 36.0
 
@@ -98,11 +98,11 @@ func enemy_sight_range() -> float:
 func enemy_attack_range() -> float:
 	match difficulty:
 		Difficulty.EASY:
-			return 7.0
+			return 16.0
 		Difficulty.NORMAL:
-			return 9.0
+			return 18.0
 		_:
-			return 12.0
+			return 22.0
 
 
 func enemy_speed_scale() -> float:

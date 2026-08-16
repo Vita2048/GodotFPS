@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://cjqhlhtgnpr18"]
+
+[ext_resource type="Texture2D" path="res://textures/sky_void.png" id="1_nq4ge"]
+
+[resource]
+specular_mode = 2
+albedo_texture = ExtResource("1_nq4ge")
+texture_filter = 0

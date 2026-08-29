@@ -1222,15 +1222,19 @@ func _static_box(parent: Node3D, pos: Vector3, size: Vector3, rot_y: float, mat:
 
 
 func _add_table_set(parent: Node3D, origin: Vector3, yaw: float) -> void:
-	var top_y := 0.78
-	_add_shatterable(
+	var top_y := 0.76
+	var table = _add_shatterable(
 		parent,
 		origin,
 		yaw,
 		"res://assets/items/Table.glb",
 		"res://assets/items/TableFractured.glb",
-		2.4
+		2.4,
+		40
 	)
+	var laptop = _add_laptop(parent, origin + Vector3(-0.35, top_y, 0).rotated(Vector3.UP, yaw), yaw)
+	if table and laptop:
+		table.register_resting(laptop)
 	_add_table_clutter(parent, origin + Vector3(0, top_y + 0.03, 0), yaw)
 	_add_chair(parent, origin + Vector3(0, 0, 0.85).rotated(Vector3.UP, yaw), yaw + PI)
 	_add_chair(parent, origin + Vector3(0, 0, -0.85).rotated(Vector3.UP, yaw), yaw)
@@ -1239,7 +1243,9 @@ func _add_table_set(parent: Node3D, origin: Vector3, yaw: float) -> void:
 func _add_workbench(parent: Node3D, origin: Vector3, yaw: float) -> void:
 	_static_box(parent, origin + Vector3(0, 0.46, 0), Vector3(2.2, 0.92, 0.72), yaw, _mats["metal"])
 	_static_box(parent, origin + Vector3(0, 0.95, 0), Vector3(2.25, 0.05, 0.76), yaw, _mats["trim"])
-	_add_table_clutter(parent, origin + Vector3(0, 0.99, 0), yaw)
+	var bench_top := origin + Vector3(0, 0.99, 0)
+	_add_laptop(parent, bench_top + Vector3(-0.35, 0, 0).rotated(Vector3.UP, yaw), yaw)
+	_add_table_clutter(parent, bench_top, yaw)
 	# Monitor
 	var mon := MeshInstance3D.new()
 	var mbox := BoxMesh.new()
@@ -1258,17 +1264,6 @@ func _add_start_briefing(parent: Node3D, origin: Vector3) -> void:
 
 
 func _add_table_clutter(parent: Node3D, table_top: Vector3, yaw: float) -> void:
-	# Laptop
-	_static_box(parent, table_top + Vector3(-0.35, 0.03, 0).rotated(Vector3.UP, yaw), Vector3(0.32, 0.02, 0.22), yaw, _mats["plastic"])
-	var screen := MeshInstance3D.new()
-	var sbox := BoxMesh.new()
-	sbox.size = Vector3(0.32, 0.2, 0.012)
-	screen.mesh = sbox
-	screen.material_override = _mats["emissive"]
-	screen.position = table_top + Vector3(-0.35, 0.13, -0.08).rotated(Vector3.UP, yaw)
-	screen.rotation.y = yaw
-	screen.rotation.x = -0.15
-	parent.add_child(screen)
 	# Coffee mug
 	var mug := MeshInstance3D.new()
 	var cyl := CylinderMesh.new()
@@ -1296,16 +1291,32 @@ func _add_chair(parent: Node3D, origin: Vector3, yaw: float) -> void:
 		yaw,
 		"res://assets/items/Chair.glb",
 		"res://assets/items/ChairFractured.glb",
-		0.9
+		0.9,
+		20
 	)
 
 
-func _add_shatterable(parent: Node3D, origin: Vector3, yaw: float, intact: String, fractured: String, mass: float) -> void:
+func _add_laptop(parent: Node3D, origin: Vector3, yaw: float):
+	## Fit longest horizontal edge to a 36 cm notebook, regardless of GLB units.
+	return _add_shatterable(
+		parent,
+		origin,
+		yaw,
+		"res://assets/items/laptop.glb",
+		"res://assets/items/laptop_fractured.glb",
+		0.6,
+		20,
+		0.36
+	)
+
+
+func _add_shatterable(parent: Node3D, origin: Vector3, yaw: float, intact: String, fractured: String, mass: float, pieces: int = 20, fit_width: float = 0.0):
 	var prop = ShatterablePropScript.new()
-	prop.setup(intact, fractured, mass)
+	prop.setup(intact, fractured, mass, pieces, fit_width)
 	prop.position = origin
 	prop.rotation.y = yaw
 	parent.add_child(prop)
+	return prop
 
 
 func _add_crate_stack(parent: Node3D, origin: Vector3) -> void:

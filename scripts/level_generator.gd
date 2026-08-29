@@ -2,6 +2,8 @@ extends Node3D
 class_name LevelGenerator
 ## Procedural multi-room dungeon with PBR materials, trim, lights, and props.
 
+const ShatterablePropScript := preload("res://scripts/shatterable_prop.gd")
+
 signal generation_finished(spawn_pos: Vector3, enemy_spawns: Array[Vector3], pickup_spawns: Array)
 
 const CELL := 4.0
@@ -1221,12 +1223,14 @@ func _static_box(parent: Node3D, pos: Vector3, size: Vector3, rot_y: float, mat:
 
 func _add_table_set(parent: Node3D, origin: Vector3, yaw: float) -> void:
 	var top_y := 0.78
-	_static_box(parent, origin + Vector3(0, top_y, 0), Vector3(1.8, 0.06, 0.9), yaw, _mats["wood"])
-	# Legs
-	for ox in [-0.78, 0.78]:
-		for oz in [-0.35, 0.35]:
-			var off := Vector3(ox, top_y * 0.5, oz).rotated(Vector3.UP, yaw)
-			_static_box(parent, origin + off, Vector3(0.07, top_y, 0.07), yaw, _mats["metal"])
+	_add_shatterable(
+		parent,
+		origin,
+		yaw,
+		"res://assets/items/Table.glb",
+		"res://assets/items/TableFractured.glb",
+		2.4
+	)
 	_add_table_clutter(parent, origin + Vector3(0, top_y + 0.03, 0), yaw)
 	_add_chair(parent, origin + Vector3(0, 0, 0.85).rotated(Vector3.UP, yaw), yaw + PI)
 	_add_chair(parent, origin + Vector3(0, 0, -0.85).rotated(Vector3.UP, yaw), yaw)
@@ -1286,9 +1290,22 @@ func _add_table_clutter(parent: Node3D, table_top: Vector3, yaw: float) -> void:
 
 
 func _add_chair(parent: Node3D, origin: Vector3, yaw: float) -> void:
-	_static_box(parent, origin + Vector3(0, 0.46, 0), Vector3(0.42, 0.06, 0.42), yaw, _mats["fabric"])
-	_static_box(parent, origin + Vector3(0, 0.23, 0), Vector3(0.07, 0.46, 0.07), yaw, _mats["metal"])
-	_static_box(parent, origin + Vector3(0, 0.78, -0.18).rotated(Vector3.UP, yaw), Vector3(0.42, 0.42, 0.05), yaw, _mats["fabric"])
+	_add_shatterable(
+		parent,
+		origin,
+		yaw,
+		"res://assets/items/Chair.glb",
+		"res://assets/items/ChairFractured.glb",
+		0.9
+	)
+
+
+func _add_shatterable(parent: Node3D, origin: Vector3, yaw: float, intact: String, fractured: String, mass: float) -> void:
+	var prop = ShatterablePropScript.new()
+	prop.setup(intact, fractured, mass)
+	prop.position = origin
+	prop.rotation.y = yaw
+	parent.add_child(prop)
 
 
 func _add_crate_stack(parent: Node3D, origin: Vector3) -> void:

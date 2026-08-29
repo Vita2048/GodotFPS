@@ -51,6 +51,14 @@ static func make_stream(kind: String) -> AudioStreamWAV:
 				var env := exp(-t * 10.0)
 				return sin(TAU * lerpf(180.0, 60.0, t / d) * t) * env * 0.35
 			)
+		"wood_break":
+			duration = 0.28
+			data = _tone_burst(sample_rate, duration, func(t, d):
+				var env := exp(-t * 9.0)
+				var crack := sin(TAU * lerpf(420.0, 70.0, t / d) * t) * env
+				var splinter := (randf() * 2.0 - 1.0) * exp(-t * 22.0)
+				return crack * 0.45 + splinter * 0.4
+			)
 		_:
 			duration = 0.1
 			data = _tone_burst(sample_rate, duration, func(t, d):

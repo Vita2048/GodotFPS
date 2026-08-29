@@ -250,13 +250,26 @@ func _try_shoot() -> void:
 			enemy.take_damage(28, hit_pos)
 			SFX.play_2d(self, "hit", -8.0)
 		else:
-			_spawn_impact(hit_pos, hit_n)
+			var prop := _find_shatterable(collider)
+			if prop and prop.has_method("shatter"):
+				prop.shatter(hit_pos, hit_n)
+			else:
+				_spawn_impact(hit_pos, hit_n)
 
 
 func _find_enemy(node: Node) -> Node:
 	var n := node
 	while n:
 		if n.is_in_group("enemy"):
+			return n
+		n = n.get_parent()
+	return null
+
+
+func _find_shatterable(node: Node) -> Node:
+	var n := node
+	while n:
+		if n.is_in_group("shatterable"):
 			return n
 		n = n.get_parent()
 	return null

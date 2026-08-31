@@ -254,7 +254,7 @@ func _try_shoot() -> void:
 			if prop and prop.has_method("shatter"):
 				prop.shatter(hit_pos, hit_n)
 			else:
-				_spawn_impact(hit_pos, hit_n)
+				ImpactFX.spawn(hit_pos, hit_n, collider)
 
 
 func _find_enemy(node: Node) -> Node:
@@ -273,25 +273,6 @@ func _find_shatterable(node: Node) -> Node:
 			return n
 		n = n.get_parent()
 	return null
-
-
-func _spawn_impact(pos: Vector3, normal: Vector3) -> void:
-	var decal := MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = 0.06
-	sphere.height = 0.12
-	decal.mesh = sphere
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.1, 0.1, 0.1)
-	mat.emission_enabled = true
-	mat.emission = Color(1.0, 0.5, 0.1)
-	mat.emission_energy_multiplier = 2.0
-	decal.material_override = mat
-	decal.position = pos + normal * 0.02
-	get_tree().current_scene.add_child(decal)
-	var tw := create_tween()
-	tw.tween_property(mat, "emission_energy_multiplier", 0.0, 0.2)
-	tw.tween_callback(decal.queue_free).set_delay(2.5)
 
 
 func _try_step_up(dir: Vector3) -> void:

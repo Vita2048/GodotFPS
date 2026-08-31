@@ -114,12 +114,18 @@ func _build_materials() -> void:
 	var wood_rough := _try_load("res://assets/textures/wood_rough.jpg")
 
 	_mats["brick"] = _pbr(brick_diff, brick_nor, brick_rough, 0.9, 0.0, 1.2)
+	(_mats["brick"] as Material).resource_name = "brick"
 	_mats["stone"] = _pbr(brick_diff, brick_nor, brick_rough, 0.88, 0.0, 0.7)
 	(_mats["stone"] as StandardMaterial3D).albedo_color = Color(0.82, 0.78, 0.72)
+	(_mats["stone"] as Material).resource_name = "stone"
 	_mats["concrete"] = _pbr(concrete_diff, concrete_nor, concrete_rough, 0.92, 0.0, 2.0)
+	(_mats["concrete"] as Material).resource_name = "concrete"
 	_mats["metal"] = _pbr(metal_diff, metal_nor, metal_rough, 0.45, 0.85, 1.5)
+	(_mats["metal"] as Material).resource_name = "metal"
 	_mats["wood"] = _pbr(wood_diff, wood_nor, wood_rough, 0.75, 0.0, 1.5)
+	(_mats["wood"] as Material).resource_name = "wood"
 	_mats["trim"] = _pbr(metal_diff, metal_nor, metal_rough, 0.35, 0.9, 4.0)
+	(_mats["trim"] as Material).resource_name = "metal"
 	_mats["warning"] = ProceduralTextures.make_standard_material(
 		ProceduralTextures.warning_stripes(), 0.7, 0.0, 1.0
 	)
@@ -363,6 +369,7 @@ func _add_global_floor_ceil(parent: Node3D) -> void:
 	col.shape = shape
 	floor_body.add_child(col)
 	floor_body.collision_layer = 1
+	floor_body.set_meta("surface_kind", "concrete")
 	parent.add_child(floor_body)
 
 	var ceil_mesh := MeshInstance3D.new()
@@ -383,6 +390,7 @@ func _add_global_floor_ceil(parent: Node3D) -> void:
 		cshape.size = cbox.size
 		ccol.shape = cshape
 		ceil_body.add_child(ccol)
+		ceil_body.set_meta("surface_kind", "metal")
 		parent.add_child(ceil_body)
 
 
@@ -395,13 +403,17 @@ func _add_wall_block(parent: Node3D, origin: Vector3, x: int, z: int) -> void:
 		return
 
 	var mat: Material = _mats["brick"]
+	var kind := "brick"
 	var style := (x * 3 + z * 7) % 5
 	if style == 0:
 		mat = _mats["metal"]
+		kind = "metal"
 	elif style == 1:
 		mat = _mats["wood"]
+		kind = "wood"
 	elif style == 2:
 		mat = _mats["accent"]
+		kind = "concrete"
 
 	# Slightly inset solid for a thicker, architectural read
 	var mi := MeshInstance3D.new()
@@ -409,6 +421,7 @@ func _add_wall_block(parent: Node3D, origin: Vector3, x: int, z: int) -> void:
 	box.size = Vector3(CELL, WALL_H, CELL)
 	mi.mesh = box
 	mi.material_override = mat
+	mi.set_meta("surface_kind", kind)
 	mi.position = origin + Vector3(0, WALL_H * 0.5, 0)
 	mi.cast_shadow = (
 		GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -445,6 +458,7 @@ func _add_wall_block(parent: Node3D, origin: Vector3, x: int, z: int) -> void:
 	body.add_child(col)
 	body.collision_layer = 1
 	body.set_meta("is_wall", true)
+	body.set_meta("surface_kind", kind)
 	parent.add_child(body)
 
 

@@ -5,11 +5,9 @@ extends Node
 const DECAL_POOL := 96
 const BURST_POOL := 16
 const LIGHT_POOL := 8
-# Visible hole as a fraction of one texture repeat on the hit face.
-const HOLE_UV_SPAN := 0.055
+# Same world quad on every surface. Metal at this size was the look to match.
+const HOLE_QUAD := 0.16
 const DECAL_DEPTH := 0.07
-# Stamp occupies this much of the texture (diameter), so quad size = visible / this.
-const STAMP_FILL := 0.42
 
 enum SurfaceKind { CONCRETE, BRICK, METAL, WOOD }
 
@@ -156,101 +154,61 @@ func _build_stamp(kind: SurfaceKind) -> Array:
 	var mask := Image.create(S, S, false, Image.FORMAT_L8)
 	mask.fill(Color(0, 0, 0, 1))
 
-	if kind == SurfaceKind.CONCRETE:
-		# Keep the crater the player already likes.
-		for y in S:
-			for x in S:
-				var op := hole_op.get_pixel(x, y).r if hole_op else 0.0
-				if op < 0.04:
-					continue
-				var c := hole_alb.get_pixel(x, y) if hole_alb else Color(0.2, 0.2, 0.2)
-				# Tint slightly toward this concrete.
-				c = c.lerp(mid, 0.35)
-				c.a = op
-				alb.set_pixel(x, y, c)
-				mask.set_pixel(x, y, Color(op, op, op))
-	elif kind == SurfaceKind.WOOD:
-		# Dark puncture + torn inner-wood splinters (pale fibers), not a gray disc.
-		_stamp_blob(mask, cx, cy, 52, 48, 1.0)
-		# Vertical splinters
-		for i in 14:
-			var sx := cx + rng.randf_range(-28, 28)
-			var sy := cy + rng.randf_range(-10, 10)
-			var hw := rng.randf_range(2.5, 6.0)
-			var hh := rng.randf_range(28, 55)
-			_stamp_blob(mask, sx, sy, hw, hh, 1.0)
-		for y in S:
-			for x in S:
-				var m := mask.get_pixel(x, y).r
-				if m < 0.04:
-					continue
-				var dx := (x - cx) / 52.0
-				var dy := (y - cy) / 48.0
-				var r2 := dx * dx + dy * dy
-				var col: Color
-				if r2 < 0.45:
-					col = dark.darkened(0.55)  # cavity
-				elif absf(x - cx) < 7.0:
-					col = pale.lightened(0.08)  # fresh split
-				else:
-					col = light.lerp(mid, rng.randf())
-				# Grain from the real wood texture
-				if diff:
-					var u := clampi(int(diff.get_width() * 0.38 + float(x) / S * 90.0), 0, diff.get_width() - 1)
-					var v := clampi(int(diff.get_height() * 0.42 + float(y) / S * 90.0), 0, diff.get_height() - 1)
-					col = col.lerp(diff.get_pixel(u, v), 0.40)
-				col.a = m
-				alb.set_pixel(x, y, col)
-	elif kind == SurfaceKind.BRICK:
-		_stamp_blob(mask, cx, cy, 52, 50, 1.0)
-		for i in 10:
-			_stamp_blob(mask, cx + rng.randf_range(-40, 40), cy + rng.randf_range(-36, 36), rng.randf_range(5, 14), rng.randf_range(4, 11), 1.0)
-		for y in S:
-			for x in S:
-				var m := mask.get_pixel(x, y).r
-				if m < 0.04:
-					continue
-				var dx := (x - cx) / 52.0
-				var dy := (y - cy) / 50.0
-				var r2 := dx * dx + dy * dy
-				var col: Color
-				if r2 < 0.4:
-					col = dark.darkened(0.4)
-				elif r2 > 0.72:
-					col = pale  # mortar dust on the rim
-				else:
-					col = light.lerp(mid, 0.3)  # terracotta chip
-				if diff:
-					var u := clampi(int(fposmod(float(x) * 1.8 + 40.0, diff.get_width())), 0, diff.get_width() - 1)
-					var v := clampi(int(fposmod(float(y) * 1.8 + 80.0, diff.get_height())), 0, diff.get_height() - 1)
-					col = col.lerp(diff.get_pixel(u, v), 0.4)
-				col.a = m
-				alb.set_pixel(x, y, col)
-	else:
-		# METAL: olive paint break + dark puncture. Do not reprint diamond plate.
-		_stamp_blob(mask, cx, cy, 50, 48, 1.0)
+	# Same compact puncture as metal: dark cavity + thin material ring. No filled
+	# cookie of the wall texture (that reads as a sticker on brick/wood).
+	_stamp_blob(mask, cx, cy, 46, 44, 1.0)
+	if kind == SurfaceKind.WOOD:
 		for i in 8:
-			_stamp_blob(mask, cx + rng.randf_range(-26, 26), cy + rng.randf_range(-22, 22), rng.randf_range(4, 10), rng.randf_range(3, 8), 0.9)
-		var paint := mid.lerp(light, 0.35)
-		var rust := Color(dark.r * 0.7 + 0.28, dark.g * 0.45, dark.b * 0.2)
-		var bare := Color(0.18, 0.16, 0.14)
-		for y in S:
-			for x in S:
-				var m := mask.get_pixel(x, y).r
-				if m < 0.04:
-					continue
-				var dx := (x - cx) / 50.0
-				var dy := (y - cy) / 48.0
-				var r2 := dx * dx + dy * dy
-				var col: Color
-				if r2 < 0.35:
-					col = bare.darkened(0.2)
-				elif r2 < 0.85:
-					col = rust.lerp(paint, 0.35)
-				else:
-					col = paint
-				col.a = m
-				alb.set_pixel(x, y, col)
+			_stamp_blob(mask, cx + rng.randf_range(-8, 8), cy + rng.randf_range(-18, 18), rng.randf_range(1.6, 3.2), rng.randf_range(10, 22), 0.85)
+	elif kind == SurfaceKind.BRICK:
+		for i in 6:
+			_stamp_blob(mask, cx + rng.randf_range(-16, 16), cy + rng.randf_range(-14, 14), rng.randf_range(3, 7), rng.randf_range(2.5, 6), 0.75)
+	elif kind == SurfaceKind.CONCRETE:
+		for i in 5:
+			_stamp_blob(mask, cx + rng.randf_range(-12, 12), cy + rng.randf_range(-12, 12), rng.randf_range(3, 6), rng.randf_range(3, 6), 0.7)
+	else:
+		for i in 5:
+			_stamp_blob(mask, cx + rng.randf_range(-10, 10), cy + rng.randf_range(-8, 8), rng.randf_range(3, 6), rng.randf_range(2.5, 5), 0.8)
+
+	var cavity := dark.darkened(0.55)
+	var ring: Color
+	match kind:
+		SurfaceKind.METAL:
+			cavity = Color(0.12, 0.11, 0.10)
+			ring = Color(dark.r * 0.7 + 0.28, dark.g * 0.45, dark.b * 0.2).lerp(mid, 0.25)
+		SurfaceKind.WOOD:
+			cavity = dark.darkened(0.62)
+			ring = mid.lerp(pale, 0.35)
+		SurfaceKind.BRICK:
+			cavity = Color(0.12, 0.07, 0.05)
+			ring = mid.darkened(0.15)
+		_:
+			cavity = Color(0.16, 0.16, 0.15)
+			ring = mid.lerp(light, 0.2)
+
+	for y in S:
+		for x in S:
+			var m := mask.get_pixel(x, y).r
+			if m < 0.04:
+				continue
+			var dx := (x - cx) / 46.0
+			var dy := (y - cy) / 44.0
+			var r2 := dx * dx + dy * dy
+			var col: Color
+			if r2 < 0.32:
+				col = cavity
+			elif r2 < 0.78:
+				col = cavity.lerp(ring, clampf((r2 - 0.32) / 0.46, 0.0, 1.0))
+			else:
+				col = ring
+			if kind == SurfaceKind.WOOD and absf(x - cx) < 5.0 and r2 > 0.2:
+				col = pale.lerp(cavity, 0.35)
+			if kind == SurfaceKind.CONCRETE and hole_alb:
+				col = col.lerp(hole_alb.get_pixel(x, y), 0.35)
+			col.a = m
+			if r2 > 0.55:
+				col.a *= clampf(1.15 - r2, 0.0, 1.0)
+			alb.set_pixel(x, y, col)
 
 	# Normals: original crater, masked; extra dip in the puncture.
 	for y in S:
@@ -348,7 +306,7 @@ func _build_pools() -> void:
 	_lights.clear()
 	for i in DECAL_POOL:
 		var d := Decal.new()
-		d.size = Vector3(0.16, DECAL_DEPTH, 0.16)
+		d.size = Vector3(HOLE_QUAD, DECAL_DEPTH, HOLE_QUAD)
 		d.cull_mask = 1
 		d.upper_fade = 0.7
 		d.lower_fade = 0.7
@@ -487,13 +445,13 @@ func spawn(pos: Vector3, normal: Vector3, collider: Object = null) -> void:
 	if n.length_squared() < 0.01:
 		n = Vector3.UP
 	var kind := _detect_kind(collider)
-	_place_decal(pos, n, kind, collider)
+	_place_decal(pos, n, kind)
 	_place_burst(pos, n, kind)
 	_flash(pos, kind)
 	SFX.play_3d(_host, "hit", pos, -12.0)
 
 
-func _place_decal(pos: Vector3, n: Vector3, kind: SurfaceKind, collider: Object = null) -> void:
+func _place_decal(pos: Vector3, n: Vector3, kind: SurfaceKind) -> void:
 	if _decals.is_empty() or _albedo.is_empty():
 		return
 	var d := _decals[_decal_i]
@@ -507,13 +465,9 @@ func _place_decal(pos: Vector3, n: Vector3, kind: SurfaceKind, collider: Object 
 	d.texture_albedo = _albedo[ki]
 	d.texture_normal = _normal[ki]
 	d.texture_orm = _orm[ki]
-	match kind:
-		SurfaceKind.CONCRETE:
-			d.albedo_mix = 0.55
-		_:
-			d.albedo_mix = 1.0
-	var xy := _hole_quad_meters(collider, n)
-	d.size = Vector3(xy, DECAL_DEPTH, xy)
+	# Same mix language as metal: stamp is a small dark pit, wall shows around it via alpha.
+	d.albedo_mix = 1.0
+	d.size = Vector3(HOLE_QUAD, DECAL_DEPTH, HOLE_QUAD)
 	d.transform = Transform3D(_basis_from_normal(n), pos + n * 0.008)
 	match kind:
 		SurfaceKind.WOOD:
@@ -587,59 +541,6 @@ func _aim_burst(p: GPUParticles3D, n: Vector3) -> void:
 		var pm := p.process_material as ParticleProcessMaterial
 		pm.direction = n.normalized()
 		pm.spread = 16.0 if p.name == "Sparks" else 28.0
-
-
-func _hole_quad_meters(collider: Object, world_n: Vector3) -> float:
-	# Size the decal so the visible stamp covers HOLE_UV_SPAN of one texture
-	# repeat on THIS face. BoxMesh UVs are 0–1 per face, so a tall side and a
-	# wide front of the same crate otherwise make the same world hole look
-	# like different sizes next to the diamonds/bricks.
-	var face_w := 1.0
-	var uv := 1.5
-	var node := collider as Node
-	if node:
-		if node.has_meta("uv_scale"):
-			uv = maxf(float(node.get_meta("uv_scale")), 0.15)
-		if node.has_meta("box_size") and node is Node3D:
-			var bs: Vector3 = node.get_meta("box_size")
-			var gt := (node as Node3D).global_transform
-			var ln := (gt.basis.inverse() * world_n).normalized()
-			var ax := absf(ln.x)
-			var ay := absf(ln.y)
-			var az := absf(ln.z)
-			var sx := bs.x * gt.basis.x.length()
-			var sy := bs.y * gt.basis.y.length()
-			var sz := bs.z * gt.basis.z.length()
-			if ay >= ax and ay >= az:
-				face_w = maxf(sx, sz)
-			elif ax >= az:
-				face_w = maxf(sy, sz)
-			else:
-				face_w = maxf(sx, sy)
-		else:
-			uv = _collider_uv_scale(node)
-	var meters_per_repeat := face_w / uv
-	var visible := HOLE_UV_SPAN * meters_per_repeat
-	visible = clampf(visible, 0.045, 0.12)
-	return visible / STAMP_FILL
-
-
-func _collider_uv_scale(collider: Object) -> float:
-	if collider == null or not (collider is Node):
-		return 1.5
-	var n := collider as Node
-	var hops := 0
-	while n and hops < 6:
-		if n.has_meta("uv_scale"):
-			return maxf(float(n.get_meta("uv_scale")), 0.15)
-		if n is MeshInstance3D:
-			var mi := n as MeshInstance3D
-			var mat := mi.material_override as BaseMaterial3D
-			if mat:
-				return maxf(mat.uv1_scale.x, 0.15)
-		n = n.get_parent()
-		hops += 1
-	return 1.5
 
 
 func _restart(p: GPUParticles3D) -> void:

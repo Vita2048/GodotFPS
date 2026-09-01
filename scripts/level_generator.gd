@@ -458,7 +458,7 @@ func _add_wall_block(parent: Node3D, origin: Vector3, x: int, z: int) -> void:
 	body.add_child(col)
 	body.collision_layer = 1
 	body.set_meta("is_wall", true)
-	body.set_meta("surface_kind", kind)
+	_tag_hit_body(body, kind, box.size, mat)
 	parent.add_child(body)
 
 
@@ -494,6 +494,7 @@ func _add_pillar(parent: Node3D, origin: Vector3) -> void:
 	col.shape = shape
 	body.add_child(col)
 	body.collision_layer = 1
+	_tag_hit_body(body, "metal", Vector3(1.1, WALL_H, 1.1), _mats["metal"])
 	parent.add_child(body)
 
 	# Hazard base ring
@@ -1213,6 +1214,16 @@ func _place_props() -> void:
 			_add_crate_stack(props, origin)
 
 
+func _tag_hit_body(body: StaticBody3D, kind: String, box_size: Vector3, mat: Material) -> void:
+	if kind != "":
+		body.set_meta("surface_kind", kind)
+	body.set_meta("box_size", box_size)
+	var uv := 1.0
+	if mat is BaseMaterial3D:
+		uv = maxf((mat as BaseMaterial3D).uv1_scale.x, 0.15)
+	body.set_meta("uv_scale", uv)
+
+
 func _static_box(parent: Node3D, pos: Vector3, size: Vector3, rot_y: float, mat: Material) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var box := BoxMesh.new()
@@ -1231,6 +1242,10 @@ func _static_box(parent: Node3D, pos: Vector3, size: Vector3, rot_y: float, mat:
 	col.shape = shape
 	body.add_child(col)
 	body.collision_layer = 1
+	var kind := ""
+	if mat:
+		kind = mat.resource_name
+	_tag_hit_body(body, kind, size, mat)
 	parent.add_child(body)
 	return mi
 

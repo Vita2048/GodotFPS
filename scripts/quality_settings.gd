@@ -5,11 +5,11 @@ enum Quality { LOW, MEDIUM, HIGH }
 
 signal quality_changed(level: Quality)
 
-var level: Quality = Quality.LOW
+var level: Quality = Quality.MEDIUM
 
 func _ready() -> void:
-	# Default to Low for weaker machines; players can raise with F10.
-	apply(Quality.LOW)
+	# F10 cycles down to Low when performance matters more than sun shadows.
+	apply(Quality.MEDIUM)
 
 
 func _input(event: InputEvent) -> void:
@@ -21,6 +21,7 @@ func _input(event: InputEvent) -> void:
 
 func apply(q: Quality) -> void:
 	level = q
+	get_tree().call_group("quality_sun", "set", "shadow_enabled", q != Quality.LOW)
 	var vp := get_viewport()
 	if vp == null:
 		return

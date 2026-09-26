@@ -23,6 +23,9 @@ var _hurt_flash: float = 0.0
 var _level: LevelGenerator
 var _active: bool = false
 var _fire_held: bool = false
+var _launcher: Node3D
+var _rocket_cd := 0.0
+var _grenade_cd := 0.0
 
 func _ready() -> void:
 	add_to_group("player")
@@ -43,6 +46,7 @@ func _ready() -> void:
 	_weapon.name = "Weapon"
 	weapon_anchor.add_child(_weapon)
 	_weapon.reload_finished.connect(_on_reload_finished)
+	_build_launcher()
 
 	shoot_ray.target_position = Vector3(0, 0, -80)
 	shoot_ray.collision_mask = 1 | 4
@@ -95,6 +99,7 @@ func _ignore_mouse_on_controls(node: Node) -> void:
 
 func activate() -> void:
 	_active = true
+	_select_weapon(GameState.selected_weapon)
 	_fire_held = false
 	GameState.paused = false
 	# Capture must happen after the UI click is fully processed
@@ -137,6 +142,11 @@ func _input(event: InputEvent) -> void:
 		return
 
 	# Hold LMB for continuous fire
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.physical_keycode:
+			KEY_1: _select_weapon(0)
+			KEY_2: _select_weapon(1)
+			KEY_G: _throw_grenade()
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT:
@@ -147,7 +157,7 @@ func _input(event: InputEvent) -> void:
 			return
 
 	if event.is_action_pressed("reload"):
-		if _weapon:
+		if _weapon and GameState.selected_weapon == 0:
 			_weapon.try_reload()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("interact"):
@@ -185,6 +195,9 @@ func _physics_process(delta: float) -> void:
 		return
 
 	# Full-auto while LMB held (also tracks OS button state if focus returned)
+	_rocket_cd = maxf(0, _rocket_cd - delta)
+	_grenade_cd = maxf(0, _grenade_cd - delta)
+	_launcher.position = _launcher.position.lerp(Vector3(0.28, -0.25, -0.55), delta * 8)
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		_fire_held = true
 	else:
@@ -219,6 +232,9 @@ func _physics_process(delta: float) -> void:
 		velocity.y = 0.0
 
 	move_and_slide()
+	if global_position.y < -6.0:
+		take_hit(GameState.health)
+		return
 	if direction != Vector3.ZERO:
 		_try_step_up(direction)
 
@@ -235,6 +251,9 @@ func _physics_process(delta: float) -> void:
 
 
 func _try_shoot() -> void:
+	if GameState.selected_weapon == 1:
+		_fire_rocket()
+		return
 	if _weapon == null:
 		return
 	if not _weapon.try_fire():
@@ -250,6 +269,10 @@ func _try_shoot() -> void:
 			enemy.take_damage(28, hit_pos)
 			SFX.play_2d(self, "hit", -8.0)
 		else:
+			if collider.has_method("take_damage"):
+				collider.take_damage(28, hit_pos)
+				ImpactFX.spawn(hit_pos, hit_n, collider)
+				return
 			var prop := _find_shatterable(collider)
 			if prop and prop.has_method("shatter"):
 				prop.shatter(hit_pos, hit_n)
@@ -291,10 +314,106 @@ func _try_step_up(dir: Vector3) -> void:
 
 
 func _try_interact() -> void:
+	for item in get_tree().get_nodes_in_group("interactable"):
+		if item.interaction_text(global_position) != "":
+			item.interact(global_position)
+			return
 	if _level == null:
 		return
 	var dir := -camera.global_transform.basis.z
 	_level.try_open_door_near(global_position, dir)
+
+
+func _select_weapon(index: int) -> void:
+	if _weapon and _weapon._reloading: return
+	GameState.selected_weapon = index
+	_weapon.visible = index == 0
+	_launcher.visible = index == 1
+
+
+func _build_launcher() -> void:
+	_launcher = Node3D.new()
+	camera.add_child(_launcher)
+	_launcher.position = Vector3(0.28, -0.25, -0.55)
+	_launcher.visible = false
+	# Layered tube, collars, wooden heat shield, grip, and iron sights.
+	for spec in [[0.075, 1.0, 0.1, Color("293c32")], [0.09, 0.4, 0.18, Color("80593a")], [0.10, 0.08, -0.38, Color("343d3d")], [0.11, 0.12, 0.55, Color("343d3d")]]:
+		var mesh := MeshInstance3D.new()
+		var tube := CylinderMesh.new()
+		tube.top_radius = spec[0]
+		tube.bottom_radius = spec[0]
+		tube.height = spec[1]
+		mesh.mesh = tube
+		mesh.rotation.x = PI * 0.5
+		mesh.position.z = spec[2]
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = spec[3]
+		mat.roughness = 0.72
+		mat.metallic = 0.45
+		if spec[1] == 0.4:
+			mat.albedo_texture = load("res://assets/textures/wood_diff.jpg")
+			mat.albedo_color = Color(0.5, 0.45, 0.38)
+			mat.metallic = 0
+		mesh.material_override = mat
+		_launcher.add_child(mesh)
+	for pos in [Vector3(0, -0.13, 0.2), Vector3(0, 0.11, -0.27)]:
+		var mesh := MeshInstance3D.new()
+		var box := BoxMesh.new()
+		box.size = Vector3(0.045, 0.17, 0.06)
+		mesh.mesh = box
+		mesh.position = pos
+		var sight_material := StandardMaterial3D.new()
+		sight_material.albedo_color = Color("1c2323")
+		sight_material.roughness = 0.7
+		mesh.material_override = sight_material
+		_launcher.add_child(mesh)
+	var warhead := MeshInstance3D.new()
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.018
+	cone.bottom_radius = 0.105
+	cone.height = 0.28
+	warhead.mesh = cone
+	warhead.rotation.x = -PI * 0.5
+	warhead.position.z = -0.53
+	var olive := StandardMaterial3D.new()
+	olive.albedo_color = Color("677140")
+	olive.metallic = 0.4
+	olive.roughness = 0.45
+	warhead.material_override = olive
+	_launcher.add_child(warhead)
+	_set_viewmodel_no_depth_clip(_launcher)
+
+
+func _launch(rocket: bool) -> void:
+	var projectile := preload("res://scripts/explosive.gd").new()
+	projectile.rocket = rocket
+	projectile.source = self
+	var direction := -camera.global_basis.z
+	projectile.velocity = direction * (38.0 if rocket else 13.0) + (Vector3.ZERO if rocket else Vector3.UP * 3)
+	get_parent().add_child(projectile)
+	# Start at the camera: the first sweep tests nearby walls rather than spawning through them.
+	projectile.global_position = camera.global_position
+
+
+func _fire_rocket() -> void:
+	if _rocket_cd > 0: return
+	if GameState.rockets <= 0:
+		_rocket_cd = 0.4
+		SFX.play_2d(self, "empty", -9)
+		return
+	GameState.rockets -= 1
+	_rocket_cd = 1.8
+	_launch(true)
+	_launcher.position.z += 0.17
+	SFX.play_2d(self, "rocket", -3)
+
+
+func _throw_grenade() -> void:
+	if _grenade_cd > 0 or GameState.grenades <= 0: return
+	GameState.grenades -= 1
+	_grenade_cd = 0.8
+	_launch(false)
+	SFX.play_2d(self, "grenade_bounce", -12)
 
 
 func _on_reload_finished() -> void:

@@ -8,8 +8,18 @@ extends CanvasLayer
 @onready var message_label: Label = $Root/Message
 
 @onready var fps_label: Label = null
+var equipment: Label
+var interaction: Label
 
 func _ready() -> void:
+	equipment = Label.new()
+	equipment.position = Vector2(16, 40)
+	equipment.add_theme_font_size_override("font_size", 18)
+	$Root.add_child(equipment)
+	interaction = Label.new()
+	interaction.position = Vector2(16, 100)
+	interaction.add_theme_font_size_override("font_size", 18)
+	$Root.add_child(interaction)
 	GameState.health_changed.connect(_on_health)
 	GameState.ammo_changed.connect(_on_ammo)
 	GameState.score_changed.connect(_on_score)
@@ -33,6 +43,17 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	_update_fps_label()
+	equipment.text = "[1] RIFLE   |   [2] RPG: %d   |   [G] GRENADES: %d\n[E] INTERACT   |   SPACE JUMP" % [GameState.rockets, GameState.grenades]
+	if GameState.selected_weapon == 1:
+		ammo_label.text = "%d ROCKETS" % GameState.rockets
+	else:
+		_on_ammo(GameState.mag, GameState.reserve_ammo)
+	interaction.text = ""
+	var player := get_tree().get_first_node_in_group("player") as Node3D
+	if player:
+		for item in get_tree().get_nodes_in_group("interactable"):
+			var hint: String = item.interaction_text(player.global_position)
+			if hint != "": interaction.text = hint
 
 
 func _update_fps_label() -> void:

@@ -18,6 +18,9 @@ var max_health: int = 100
 var mag: int = 30
 var reserve_ammo: int = 90
 var mag_size: int = 30
+var grenades: int = 4
+var rockets: int = 3
+var selected_weapon: int = 0
 var score: int = 0
 var enemies_alive: int = 0
 var player_dead: bool = false
@@ -187,6 +190,9 @@ func cycle_difficulty() -> void:
 
 
 func reset(reset_enemy_count: bool = true) -> void:
+	grenades = 4
+	rockets = 3
+	selected_weapon = 0
 	max_health = player_max_health()
 	health = max_health
 	mag = mag_size

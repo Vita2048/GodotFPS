@@ -25,6 +25,8 @@ var _rng := RandomNumberGenerator.new()
 var _patrol_target := Vector3.ZERO
 var _patrol_wait: float = 0.0
 var _has_patrol_target: bool = false
+var _navigator: NavigationAgent3D
+var _repath_cd := 0.0
 var _death_base_model_y: float = 0.0
 var _death_drop: float = 0.0
 var _death_len: float = 1.0
@@ -76,6 +78,13 @@ func _ready() -> void:
 	_rng.randomize()
 	GameState.register_enemy()
 	_setup_body()
+	floor_snap_length = 0.45
+	floor_max_angle = deg_to_rad(45)
+	_navigator = NavigationAgent3D.new()
+	# Recast vertices can sit half a voxel pair above sloped collision geometry.
+	_navigator.path_desired_distance = 0.8
+	_navigator.target_desired_distance = 0.7
+	add_child(_navigator)
 	_load_visuals_and_anims()
 	call_deferred("_find_player")
 
@@ -378,7 +387,7 @@ func _prepare_meshes(root: Node) -> void:
 					sm.albedo_color = Color(1.35, 1.35, 1.4) # brighten textured albedo
 					sm.metallic = minf(sm.metallic, 0.15)
 					sm.roughness = maxf(sm.roughness, 0.55)
-					sm.specular = 0.35
+					sm.metallic_specular = 0.35
 					# Bake a little self-illumination from the albedo map so silhouettes stay readable
 					sm.emission_enabled = true
 					if sm.albedo_texture:
@@ -731,7 +740,7 @@ func _physics_process(delta: float) -> void:
 
 	var to_player := _player.global_position - global_position
 	to_player.y = 0.0
-	var dist := to_player.length()
+	var dist := global_position.distance_to(_player.global_position)
 	var can_see := dist < sight_range and _has_line_of_sight()
 
 	if can_see:
@@ -774,7 +783,16 @@ func _physics_process(delta: float) -> void:
 		_try_attack()
 	else:
 		state = State.CHASE
+		_repath_cd -= delta
 		var dir := to_player.normalized()
+		if get_tree().get_first_node_in_group("facility") != null and NavigationServer3D.map_get_iteration_id(get_world_3d().navigation_map) > 0:
+			if _repath_cd <= 0:
+				_navigator.target_position = _player.global_position
+				_repath_cd = 0.4
+			if not _navigator.is_navigation_finished():
+				var next := _navigator.get_next_path_position() - global_position
+				next.y = 0
+				dir = next.normalized()
 		var spd := run_speed if dist > 10.0 else walk_speed
 		velocity = dir * spd
 		if dist > 10.0:
@@ -790,6 +808,12 @@ func _physics_process(delta: float) -> void:
 
 
 func _patrol(delta: float) -> void:
+	# Upper guards hold their posts until alerted, avoiding wandering off galleries.
+	if get_tree().get_first_node_in_group("facility") != null and global_position.y > 2.0:
+		velocity = Vector3(0, velocity.y - 9.8 * delta, 0)
+		move_and_slide()
+		_play(anim_idle)
+		return
 	state = State.IDLE
 	_patrol_wait = maxf(0.0, _patrol_wait - delta)
 	if _patrol_wait > 0.0:

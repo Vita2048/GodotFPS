@@ -112,7 +112,7 @@ func show_title() -> void:
 	if start_btn:
 		start_btn.text = "CLICK TO PLAY"
 	if controls:
-		controls.text = "WASD Move  |  Shift Sprint  |  Mouse Look\nHold LMB Fire  |  R Reload  |  E Open Doors  |  Esc Pause\nF9 Difficulty  |  F10 Quality  |  F11 Fullscreen  |  Q Quit"
+		controls.text = "WASD Move  |  Shift Sprint  |  Mouse Look\nHold LMB Fire  |  R Reload  |  E Doors / Lift  |  Esc Pause\n1 Rifle  |  2 RPG  |  G Grenade\nF9 Difficulty  |  F10 Quality  |  F11 Fullscreen  |  Q Quit"
 	if _diff_row:
 		_diff_row.visible = true
 	if _diff_label:

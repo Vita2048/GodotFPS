@@ -25,6 +25,7 @@ const TILE_LOFT := 5 ## alias kept for older spawn checks
 @export var seed_value: int = 0
 ## Huge FPS win: one floor/ceiling, no trims/beads, few lights, no shadows.
 @export var performance_mode: bool = true
+@export var showcase_layout: bool = true
 ## Visual theme: 1 = cool concrete, 2 = warm industrial
 var sector_theme: int = 1
 
@@ -75,6 +76,13 @@ func generate(seed_override: int = -1) -> void:
 	_rng.seed = seed_value
 
 	_build_materials()
+	if showcase_layout and sector_theme == 1:
+		var facility := preload("res://scripts/facility.gd").new()
+		facility.name = "NorthRidgeFacility"
+		add_child(facility)
+		facility.build(self)
+		generation_finished.emit(_spawn_pos, _enemy_spawns, _pickup_spawns)
+		return
 	_carve_rooms()
 	_build_geometry()
 	_place_lights()
@@ -370,6 +378,7 @@ func _add_global_floor_ceil(parent: Node3D) -> void:
 	floor_body.add_child(col)
 	floor_body.collision_layer = 1
 	floor_body.set_meta("surface_kind", "concrete")
+	floor_body.set_meta("uv_scale", 2.0)
 	parent.add_child(floor_body)
 
 	var ceil_mesh := MeshInstance3D.new()
@@ -391,6 +400,7 @@ func _add_global_floor_ceil(parent: Node3D) -> void:
 		ccol.shape = cshape
 		ceil_body.add_child(ccol)
 		ceil_body.set_meta("surface_kind", "metal")
+		ceil_body.set_meta("uv_scale", 1.5)
 		parent.add_child(ceil_body)
 
 
@@ -789,6 +799,11 @@ func _add_mountains() -> void:
 	var h := map_height * CELL
 	var cx := w * 0.5
 	var cz := h * 0.5
+	if showcase_layout and sector_theme == 1:
+		w = 160.0
+		h = 160.0
+		cx = 24.0
+		cz = 22.0
 	var rock := StandardMaterial3D.new()
 	rock.albedo_color = Color(0.38, 0.36, 0.34)
 	rock.roughness = 0.92

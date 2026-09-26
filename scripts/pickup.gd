@@ -30,6 +30,14 @@ func _ready() -> void:
 	else:
 		_build_ammo_crate(_mesh)
 		amount = 30
+	if pickup_type in ["grenade", "rocket"]:
+		var label := Label3D.new()
+		label.text = "+2 GRENADES" if pickup_type == "grenade" else "+2 ROCKETS"
+		label.font_size = 28
+		label.pixel_size = 0.007
+		label.position.y = 1.15
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		add_child(label)
 
 	# Soft glow (no realtime light on low — emissive material is enough)
 	if QualitySettings == null or QualitySettings.level != QualitySettings.Quality.LOW:
@@ -142,10 +150,16 @@ func _process(delta: float) -> void:
 func _on_body_entered(body: Node) -> void:
 	if not body.is_in_group("player"):
 		return
+	if not GameState.game_started or GameState.paused or GameState.player_dead:
+		return
 	if pickup_type == "health":
 		if GameState.health >= GameState.max_health:
 			return
 		GameState.heal(amount)
+	elif pickup_type == "grenade":
+		GameState.grenades += 2
+	elif pickup_type == "rocket":
+		GameState.rockets += 2
 	else:
 		GameState.add_ammo(amount)
 	_play_pickup()

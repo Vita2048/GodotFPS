@@ -12,9 +12,9 @@ func _ready() -> void:
 	if world_env:
 		world_env.add_to_group("world_env")
 	_setup_environment()
-	# Apply Low quality after env exists (also runs from autoload, this refreshes env refs)
+	# Medium balances clearer materials and sun shadows; F10 still offers Low.
 	if QualitySettings:
-		QualitySettings.apply(QualitySettings.Quality.LOW)
+		QualitySettings.apply(QualitySettings.Quality.MEDIUM)
 	if GameState:
 		GameState.set_difficulty(GameState.Difficulty.EASY)
 	if title_ui:
@@ -54,10 +54,11 @@ func _setup_environment() -> void:
 		sky_mat.panorama = load("res://assets/textures/mountains_sky.jpg")
 	sky.sky_material = sky_mat
 	env.sky = sky
+	env.sky_rotation = Vector3(0, PI * 0.5, 0)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.85
+	env.ambient_light_energy = 0.42
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.12
+	env.tonemap_exposure = 1.0
 	env.ssao_enabled = false
 	env.ssil_enabled = false
 	env.glow_enabled = true
@@ -68,7 +69,7 @@ func _setup_environment() -> void:
 	env.fog_aerial_perspective = 0.6
 	env.volumetric_fog_enabled = false
 	env.adjustment_enabled = true
-	env.adjustment_brightness = 1.06
+	env.adjustment_brightness = 1.0
 	env.adjustment_contrast = 1.04
 	env.adjustment_saturation = 1.08
 	if world_env:
@@ -80,12 +81,18 @@ func _setup_environment() -> void:
 		sun.name = "FillSun"
 		add_child(sun)
 	sun.light_color = Color(1.0, 0.92, 0.78)
-	sun.light_energy = 1.15
+	sun.light_energy = 0.85
 	sun.rotation_degrees = Vector3(-28, 130, 0)
-	sun.shadow_enabled = false
+	sun.shadow_enabled = true
+	sun.directional_shadow_max_distance = 80
+	sun.add_to_group("quality_sun")
 
 
 func _build_level() -> void:
+	ImpactFX.clear_level()
+	GameState.enemies_alive = 0
+	for node in get_tree().get_nodes_in_group("transient_combat"):
+		node.queue_free()
 	for c in entities.get_children():
 		c.queue_free()
 	# Two distinct, larger sectors
@@ -95,6 +102,14 @@ func _build_level() -> void:
 	var spawn: Vector3 = level._spawn_pos
 	player.global_position = spawn + Vector3(0, 0.1, 0)
 	player.velocity = Vector3.ZERO
+	player.rotation.y = 0
+	player._yaw = 0
+	player._pitch = 0
+	player.head.rotation.x = 0
+	player._rocket_cd = 0
+	player._grenade_cd = 0
+	player._weapon._reloading = false
+	player._select_weapon(0)
 
 	var model_pool: Array[String] = [
 		"res://assets/characters/police.glb",

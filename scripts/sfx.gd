@@ -27,6 +27,26 @@ static func make_stream(kind: String) -> AudioStreamWAV:
 	var duration := 0.15
 	var data := PackedByteArray()
 	match kind:
+		"explosion":
+			duration = 0.95
+			data = _tone_burst(sample_rate, duration, func(t, _d):
+				return sin(TAU * (60.0 * t - 20.0 * t * t)) * exp(-t * 5.0) * 0.75 + (randf() * 2 - 1) * exp(-t * 9) * 0.6
+			)
+		"rocket":
+			duration = 0.4
+			data = _tone_burst(sample_rate, duration, func(t, _d):
+				return (randf() * 2 - 1) * exp(-t * 8) * 0.65 + sin(TAU * 90 * t) * exp(-t * 15) * 0.4
+			)
+		"grenade_bounce", "lift":
+			duration = 0.2
+			data = _tone_burst(sample_rate, duration, func(t, _d):
+				return (sin(TAU * 260 * t) * 0.5 + sin(TAU * 730 * t) * 0.2) * exp(-t * 24)
+			)
+		"hit_glass":
+			duration = 0.3
+			data = _tone_burst(sample_rate, duration, func(t, _d):
+				return (sin(TAU * 3200 * t) * 0.3 + (randf() * 2 - 1) * 0.4) * exp(-t * 16)
+			)
 		"shoot":
 			duration = 0.12
 			data = _tone_burst(sample_rate, duration, func(t, d):
@@ -34,11 +54,38 @@ static func make_stream(kind: String) -> AudioStreamWAV:
 				return sin(TAU * lerpf(220.0, 40.0, t / d) * t) * env * 0.4 \
 					+ (randf() * 2.0 - 1.0) * env * 0.25
 			)
-		"hit":
+		"hit", "hit_concrete":
+			duration = 0.16
+			data = _tone_burst(sample_rate, duration, func(t, d):
+				var env := exp(-t * 18.0)
+				var pop := sin(TAU * lerpf(160.0, 35.0, t / d) * t) * env * 0.45
+				var grit := (randf() * 2.0 - 1.0) * exp(-t * 30.0) * 0.3
+				return pop + grit
+			)
+		"hit_metal":
+			duration = 0.22
+			data = _tone_burst(sample_rate, duration, func(t, d):
+				var env := exp(-t * 14.0)
+				var ping := (sin(TAU * 1250.0 * t) + 0.5 * sin(TAU * 2480.0 * t)) * env * 0.4
+				var thud := sin(TAU * lerpf(320.0, 80.0, t / d) * t) * exp(-t * 26.0) * 0.35
+				var spark := (randf() * 2.0 - 1.0) * exp(-t * 40.0) * 0.2
+				return ping + thud + spark
+			)
+		"hit_wood":
 			duration = 0.18
 			data = _tone_burst(sample_rate, duration, func(t, d):
 				var env := exp(-t * 16.0)
-				return sin(TAU * lerpf(120.0, 30.0, t / d) * t) * env * 0.5
+				var thud := sin(TAU * lerpf(240.0, 60.0, t / d) * t) * env * 0.5
+				var crack := (randf() * 2.0 - 1.0) * exp(-t * 22.0) * 0.3
+				return thud + crack
+			)
+		"hit_brick":
+			duration = 0.17
+			data = _tone_burst(sample_rate, duration, func(t, d):
+				var env := exp(-t * 17.0)
+				var crack := sin(TAU * lerpf(280.0, 50.0, t / d) * t) * env * 0.4
+				var crumble := (randf() * 2.0 - 1.0) * exp(-t * 18.0) * 0.38
+				return crack + crumble
 			)
 		"empty":
 			duration = 0.08

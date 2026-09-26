@@ -1,6 +1,16 @@
 # Godot FPS (4.7)
 
-Godot 4.7 first-person shooter with a procedural dungeon, AKS-74U viewmodel, and Mixamo-animated police enemies.
+Godot 4.7 first-person shooter with a two-storey research station, a procedural second sector, an AKS-74U, grenades, an RPG, and Mixamo-animated enemies.
+
+## North Ridge facility
+
+Sector Alpha now uses a designed 48 × 44 metre layout with two opposing stair flights, connected upper galleries, a freight lift, and an observation terrace. Operations, server storage, workshop, and armory spaces have distinct materials and furniture. Enemy navigation is baked from the static architecture, including the stairs. Sector Beta retains the procedural generator; disable `Level.showcase_layout` to use it for Alpha too.
+
+Concrete, brick, metal, wood, plaster, tile, glass, and rubber have separate impact responses. Damage marks use fixed physical sizes, multiple stamp variants, and material-specific chips, splinters, dust, sparks, and sounds. Glass uses surface overlays because projected decals cannot render on transparent surfaces.
+
+Grenades bounce and detonate after 2.6 seconds. RPG rockets detonate on contact and rearm in 1.8 seconds. Blasts lose damage with distance, respect solid cover, and can hurt the player. Red volatile canisters chain-react, lamps can be shot out, and cargo boxes respond to impulses. Grenade/rocket pickups replenish two rounds. The launcher is a procedural model; it does not yet have authored hand/reload animations.
+
+Medium graphics is the default. F10 cycles quality; Low disables sunlight shadows for slower GPUs.
 
 ## Enemy weapon orientation tuner
 
@@ -59,8 +69,17 @@ First-person shooter built in **Godot 4.7** with:
 | Look | Mouse |
 | Shoot | LMB |
 | Reload | R |
-| Open door | E |
+| Rifle / RPG | 1 / 2 |
+| Throw grenade | G |
+| Jump | Space |
+| Open door / call or ride lift | E |
 | Pause | Esc |
+
+## Validation
+
+Run `Godot_v4.7-stable_win64_console.exe --headless --path . res://tests/showcase_smoke.tscn --fixed-fps 60` for the gameplay smoke suite. It checks stairs, balcony navigation, lift riding and gates, blast cover/falloff, projectiles, impact pooling, props, ammunition, restarts, and the second sector. A successful run ends with `SMOKE RESULT: 0 failures`.
+
+Run the same scene without `--headless` to capture atrium, gallery, terrace, RPG, and material-impact previews in `build/validation/`. Add `-- --full` to run gameplay checks as well as captures in the graphical process.
 
 ## Viewmodel transform (from three.js)
 

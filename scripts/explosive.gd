@@ -10,18 +10,13 @@ var bounce_cd := 0.0
 
 func _ready() -> void:
 	add_to_group("transient_combat")
-	var mesh := MeshInstance3D.new()
-	var shape := CapsuleMesh.new()
-	shape.radius = 0.075 if rocket else 0.095
-	shape.height = 0.5 if rocket else 0.24
-	mesh.mesh = shape
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color("6f7945")
-	mat.metallic = 0.6
-	mat.roughness = 0.45
-	mesh.material_override = mat
-	mesh.rotation.x = PI * 0.5 if rocket else 0.0
-	add_child(mesh)
+	if rocket:
+		var model := Node3D.new()
+		add_child(model)
+		preload("res://scripts/ordnance_models.gd").rocket(model)
+		model.rotation.x = -PI * 0.5
+	else:
+		preload("res://scripts/ordnance_models.gd").grenade(self, true)
 	if rocket:
 		remaining = 5.0
 		trail = GPUParticles3D.new()
@@ -115,51 +110,7 @@ static func blast(host: Node3D, point: Vector3, radius: float, damage: int, excl
 			target.shatter(aim, (aim - point).normalized())
 	Enemy.broadcast_gunshot(host, point, 45.0)
 	SFX.play_3d(host, "explosion", point, 0)
-	var fx := Node3D.new()
-	fx.add_to_group("transient_combat")
+	var fx := preload("res://scripts/blast_effect.gd").new()
+	fx.blast_radius = radius
 	host.add_child(fx)
 	fx.global_position = point
-	var light := OmniLight3D.new()
-	light.light_color = Color(1, 0.5, 0.15)
-	light.light_energy = 9
-	light.omni_range = radius * 1.8
-	fx.add_child(light)
-	for smoke in [false, true]:
-		var particles := GPUParticles3D.new()
-		particles.amount = 22 if smoke else 32
-		particles.lifetime = 1.6 if smoke else 0.5
-		particles.one_shot = true
-		particles.explosiveness = 1
-		var pm := ParticleProcessMaterial.new()
-		pm.spread = 180
-		pm.initial_velocity_min = 1.0 if smoke else 3.0
-		pm.initial_velocity_max = 3.0 if smoke else 11.0
-		pm.gravity = Vector3(0, 1 if smoke else -8, 0)
-		pm.damping_min = 1
-		pm.damping_max = 3
-		pm.scale_min = 0.8 if smoke else 0.12
-		pm.scale_max = 2.5 if smoke else 0.5
-		var ramp := GradientTexture1D.new()
-		var grad := Gradient.new()
-		grad.set_color(0, Color(0.2, 0.22, 0.24, 0.65) if smoke else Color(1, 0.85, 0.35))
-		grad.set_color(1, Color(0.22, 0.23, 0.24, 0))
-		ramp.gradient = grad
-		pm.color_ramp = ramp
-		particles.process_material = pm
-		var mesh := SphereMesh.new()
-		mesh.radius = 0.22
-		mesh.height = 0.44
-		mesh.radial_segments = 8
-		mesh.rings = 4
-		var material := StandardMaterial3D.new()
-		material.vertex_color_use_as_albedo = true
-		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mesh.material = material
-		particles.draw_pass_1 = mesh
-		fx.add_child(particles)
-		particles.emitting = true
-	var tween := fx.create_tween()
-	tween.tween_property(light, "light_energy", 0.0, 0.25)
-	tween.tween_interval(2)
-	tween.tween_callback(fx.queue_free)

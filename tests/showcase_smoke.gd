@@ -32,10 +32,25 @@ func run() -> void:
 	for enemy in get_tree().get_nodes_in_group("enemy"):
 		enemy.set_physics_process(false)
 	await frames(5)
+	check(QualitySettings.level == QualitySettings.Quality.LOW, "game defaults to Low rendering")
 	if DisplayServer.get_name() != "headless" and not "--full" in OS.get_cmdline_user_args():
 		await previews()
 		get_tree().quit()
 		return
+	var blast_visual := preload("res://scripts/blast_effect.gd").new()
+	game.add_child(blast_visual)
+	blast_visual.set_process(false)
+	blast_visual._process(0.12)
+	check(blast_visual.lobes[0].visible and not blast_visual.clouds[0].visible, "explosion starts with fire before smoke on Low")
+	GameState.paused = true
+	blast_visual._process(0.5)
+	check(is_equal_approx(blast_visual.elapsed, 0.12), "explosion animation pauses with menu")
+	GameState.paused = false
+	blast_visual._process(0.7)
+	check(not blast_visual.lobes[0].visible and blast_visual.clouds[0].visible, "explosion fire gives way to delayed smoke")
+	blast_visual._process(1.2)
+	await frames(1)
+	check(not is_instance_valid(blast_visual), "explosion effect cleans itself up")
 	var facility := get_tree().get_first_node_in_group("facility")
 	check(facility != null, "facility constructed")
 	var map := get_world_3d().navigation_map
@@ -218,3 +233,46 @@ func previews() -> void:
 	await frames(12)
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png("res://build/validation/impacts.png")
+	await ordnance_previews(camera)
+
+func ordnance_previews(camera: Camera3D) -> void:
+	QualitySettings.apply(QualitySettings.Quality.LOW)
+	var models := preload("res://scripts/ordnance_models.gd")
+	var display := Node3D.new()
+	game.add_child(display)
+	display.position = Vector3(24, 1.2, 31)
+	for i in 3:
+		var root := Node3D.new()
+		display.add_child(root)
+		root.position.x = (i - 1) * 0.9
+		root.rotation.y = -0.3
+		if i == 0:
+			models.ammo(root)
+		elif i == 1:
+			root.scale = Vector3.ONE * 2
+			models.grenade(root)
+		else:
+			root.scale = Vector3.ONE * 1.3
+			models.rocket(root)
+		var label := Label3D.new()
+		label.text = ["RIFLE AMMO", "GRENADE", "ROCKET"][i]
+		label.font_size = 26
+		label.pixel_size = 0.004
+		label.position = Vector3((i - 1) * 0.9, -0.46, 0)
+		display.add_child(label)
+	camera.position = Vector3(24, 2.1, 33.8)
+	camera.look_at(Vector3(24, 1.3, 31))
+	camera.fov = 55
+	await frames(8)
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png("res://build/validation/ordnance-low.png")
+	display.queue_free()
+	camera.position = Vector3(24, 2.4, 31)
+	camera.look_at(Vector3(24, 1.1, 23))
+	var explosion := preload("res://scripts/blast_effect.gd").new()
+	game.add_child(explosion)
+	explosion.position = Vector3(24, 1.1, 23)
+	for stage in ["flash", "fireball", "dissipation"]:
+		await frames(6 if stage != "dissipation" else 17)
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png("res://build/validation/explosion-%s-low.png" % stage)

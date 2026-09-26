@@ -27,6 +27,19 @@ func _ready() -> void:
 	if pickup_type == "health":
 		_build_medkit(_mesh)
 		amount = 35
+	elif pickup_type == "grenade":
+		for x in [-0.14, 0.14]:
+			var model := Node3D.new()
+			model.position.x = x
+			model.scale = Vector3.ONE * 1.6
+			_mesh.add_child(model)
+			preload("res://scripts/ordnance_models.gd").grenade(model)
+	elif pickup_type == "rocket":
+		for x in [-0.12, 0.12]:
+			var model := Node3D.new()
+			model.position.x = x
+			_mesh.add_child(model)
+			preload("res://scripts/ordnance_models.gd").rocket(model)
 	else:
 		_build_ammo_crate(_mesh)
 		amount = 30
@@ -90,61 +103,15 @@ func _build_medkit(root: Node3D) -> void:
 
 
 func _build_ammo_crate(root: Node3D) -> void:
-	var crate_mat := StandardMaterial3D.new()
-	crate_mat.albedo_color = Color(0.28, 0.24, 0.14)
-	crate_mat.metallic = 0.15
-	crate_mat.roughness = 0.62
-
-	var metal := StandardMaterial3D.new()
-	metal.albedo_color = Color(0.55, 0.5, 0.32)
-	metal.metallic = 0.8
-	metal.roughness = 0.32
-	metal.emission_enabled = true
-	metal.emission = Color(0.85, 0.62, 0.12)
-	metal.emission_energy_multiplier = 0.55
-
-	var brass := StandardMaterial3D.new()
-	brass.albedo_color = Color(0.82, 0.62, 0.22)
-	brass.metallic = 0.9
-	brass.roughness = 0.22
-	brass.emission_enabled = true
-	brass.emission = Color(0.95, 0.7, 0.15)
-	brass.emission_energy_multiplier = 0.7
-
-	var crate := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = Vector3(0.4, 0.22, 0.28)
-	crate.mesh = box
-	crate.material_override = crate_mat
-	root.add_child(crate)
-
-	var rim := MeshInstance3D.new()
-	var rbox := BoxMesh.new()
-	rbox.size = Vector3(0.42, 0.03, 0.3)
-	rim.mesh = rbox
-	rim.position.y = 0.12
-	rim.material_override = metal
-	root.add_child(rim)
-
-	for i in 4:
-		var round := MeshInstance3D.new()
-		var cyl := CylinderMesh.new()
-		cyl.top_radius = 0.018
-		cyl.bottom_radius = 0.018
-		cyl.height = 0.09
-		cyl.radial_segments = 8
-		round.mesh = cyl
-		round.material_override = brass
-		round.rotation_degrees = Vector3(90, 0, 0)
-		round.position = Vector3(-0.1 + i * 0.065, 0.16, 0.0)
-		root.add_child(round)
+	preload("res://scripts/ordnance_models.gd").ammo(root)
 
 
 func _process(delta: float) -> void:
+	if GameState.paused: return
 	_bob_t += delta
 	if _mesh:
 		_mesh.position.y = 0.55 + sin(_bob_t * 3.0) * 0.1
-		_mesh.rotation.y += delta * 1.5
+		_mesh.rotation.y += delta * 0.55
 
 
 func _on_body_entered(body: Node) -> void:
@@ -173,8 +140,8 @@ func _play_pickup() -> void:
 		return
 	var player := AudioStreamPlayer3D.new()
 	player.stream = _beep()
-	player.global_position = global_position
 	parent.add_child(player)
+	player.global_position = global_position
 	player.play()
 	player.finished.connect(player.queue_free)
 

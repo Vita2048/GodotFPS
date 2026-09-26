@@ -5,11 +5,11 @@ enum Quality { LOW, MEDIUM, HIGH }
 
 signal quality_changed(level: Quality)
 
-var level: Quality = Quality.MEDIUM
+var level: Quality = Quality.LOW
 
 func _ready() -> void:
-	# F10 cycles down to Low when performance matters more than sun shadows.
-	apply(Quality.MEDIUM)
+	# Start on Low; F10 can raise quality.
+	apply(Quality.LOW)
 
 
 func _input(event: InputEvent) -> void:

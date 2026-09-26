@@ -10,7 +10,9 @@ Concrete, brick, metal, wood, plaster, tile, glass, and rubber have separate imp
 
 Grenades bounce and detonate after 2.6 seconds. RPG rockets detonate on contact and rearm in 1.8 seconds. Blasts lose damage with distance, respect solid cover, and can hurt the player. Red volatile canisters chain-react, lamps can be shot out, and cargo boxes respond to impulses. Grenade/rocket pickups replenish two rounds. The launcher is a procedural model; it does not yet have authored hand/reload animations.
 
-Medium graphics is the default. F10 cycles quality; Low disables sunlight shadows for slower GPUs.
+Low graphics is the default. F10 cycles quality; Low disables sunlight shadows for slower GPUs.
+
+Explosions use an expanding yellow-orange fireball, a brief pressure ring, sparks and fragments, then delayed smoke. The fire remains visible with Low-quality bloom disabled. Grenade and rocket pickups have distinct models; rifle ammunition uses an open steel box with brass cartridges. The same segmented grenade shell is used for thrown grenades, without the released safety lever and ring.
 
 ## Enemy weapon orientation tuner
 

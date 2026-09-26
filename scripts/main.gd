@@ -12,9 +12,9 @@ func _ready() -> void:
 	if world_env:
 		world_env.add_to_group("world_env")
 	_setup_environment()
-	# Medium balances clearer materials and sun shadows; F10 still offers Low.
+	# Low is the default; F10 offers higher rendering quality.
 	if QualitySettings:
-		QualitySettings.apply(QualitySettings.Quality.MEDIUM)
+		QualitySettings.apply(QualitySettings.Quality.LOW)
 	if GameState:
 		GameState.set_difficulty(GameState.Difficulty.EASY)
 	if title_ui:
